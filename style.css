@@ -320,10 +320,9 @@ header h1 {
 
 .course-card .course-meta {
     display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
     margin-top: 15px;
     padding-top: 15px;
     border-top: 1px solid #bdc3c7;
