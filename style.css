@@ -206,21 +206,61 @@ header h1 {
 /* Admin Controls */
 .admin-controls {
     margin-bottom: 30px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.admin-controls button {
+    flex: 1;
+    min-width: 250px;
+    padding: 12px 20px;
+    font-size: 15px;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: white;
 }
 
 #add-course-btn {
-    padding: 12px 24px;
     background-color: #27ae60;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background-color 0.3s;
 }
 
 #add-course-btn:hover {
-    background-color: #229954;
+    background-color: #219150;
+    transform: translateY(-2px);
+}
+
+#manage-emails-btn {
+    background-color: #2980b9;
+}
+
+#manage-emails-btn:hover {
+    background-color: #2471a3;
+    transform: translateY(-2px);
+}
+
+#toggle-completed-btn {
+    background-color: #7f8c8d;
+}
+
+#toggle-completed-btn:hover {
+    background-color: #6c7a7b;
+    transform: translateY(-2px);
+}
+
+#toggle-completed-btn.archive-active {
+    background-color: #e74c3c;
+}
+
+#toggle-completed-btn.archive-active:hover {
+    background-color: #c0392b;
 }
 
 /* Courses Grid */
@@ -305,17 +345,23 @@ header h1 {
 
 /* Course Detail */
 .back-btn {
-    padding: 10px 20px;
+    padding: 12px 24px;
     background-color: #95a5a6;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: bold;
     cursor: pointer;
+    transition: all 0.3s ease;
     margin-bottom: 20px;
+    display: inline-flex;
+    align-items: center;
 }
 
 .back-btn:hover {
     background-color: #7f8c8d;
+    transform: translateX(-5px);
 }
 
 .course-detail-header {
@@ -367,15 +413,25 @@ header h1 {
 .course-actions {
     margin-top: 20px;
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
 }
 
 .course-actions button {
-    padding: 10px 20px;
+    flex: 1;
+    min-width: 150px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: bold;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: white;
 }
 
 .enroll-btn {
@@ -403,6 +459,22 @@ header h1 {
 
 .edit-course-btn:hover {
     background-color: #e67e22;
+}
+
+.terminate-course-btn {
+    background-color: #8e44ad;
+}
+
+.terminate-course-btn:hover {
+    background-color: #7d3c98;
+}
+
+.restore-course-btn {
+    background-color: #27ae60;
+}
+
+.restore-course-btn:hover {
+    background-color: #229954;
 }
 
 .delete-course-btn {

@@ -377,11 +377,11 @@ class CourseApp {
         if (this.showingCompleted) {
             courses = allCourses.filter(c => c.status === 'completed');
             document.getElementById('toggle-completed-btn').textContent = '❌ Chiudi Archivio';
-            document.getElementById('toggle-completed-btn').style.backgroundColor = '#e74c3c'; // Red for close
+            document.getElementById('toggle-completed-btn').classList.add('archive-active');
         } else {
             courses = allCourses.filter(c => !c.status || c.status === 'active');
             document.getElementById('toggle-completed-btn').textContent = '📂 Archivio Corsi Terminati';
-            document.getElementById('toggle-completed-btn').style.backgroundColor = '#7f8c8d'; // Grey for archive mode
+            document.getElementById('toggle-completed-btn').classList.remove('archive-active');
         }
 
         const container = document.getElementById('courses-container');
@@ -479,12 +479,12 @@ class CourseApp {
                 // Active course: Edit + Terminate
                 statusButtons = `
                     <button class="edit-course-btn" onclick="app.editCourse(${course.id})">Modifica Corso</button>
-                    <button class="terminate-course-btn" onclick="app.terminateCourse(${course.id})" style="background-color: #8e44ad; color: white;">✅ Conferma Termine Corso</button>
+                    <button class="terminate-course-btn" onclick="app.terminateCourse(${course.id})">✅ Conferma Termine Corso</button>
                  `;
             } else {
                 // Completed course: Restore
                 statusButtons = `
-                    <button class="restore-course-btn" onclick="app.restoreCourse(${course.id})" style="background-color: #27ae60; color: white;">🔄 Ripristina Corso</button>
+                    <button class="restore-course-btn" onclick="app.restoreCourse(${course.id})">🔄 Ripristina Corso</button>
                 `;
             }
 
