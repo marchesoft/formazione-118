@@ -229,7 +229,6 @@ header h1 {
     text-align: center;
     color: white;
     white-space: normal;
-    /* Allow text to wrap inside the button if needed to stay on one row */
     line-height: 1.2;
 }
 
@@ -677,7 +676,6 @@ header h1 {
         gap: 6px;
         width: 100%;
         overflow: hidden;
-        /* Prevent potential scrollbars if we want strict row alignment */
     }
 
     .admin-controls button {
@@ -688,6 +686,33 @@ header h1 {
         white-space: normal;
         line-height: 1.1;
         height: auto;
+    }
+
+    .course-actions {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 8px;
+    }
+
+    .course-actions button {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 5px;
+        font-size: 11px;
+        white-space: normal;
+        line-height: 1.1;
+    }
+
+    .modal-actions {
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    .modal-actions button {
+        padding: 10px;
+        font-size: 14px;
     }
 
     .course-card-image {
