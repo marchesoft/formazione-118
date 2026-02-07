@@ -1,0 +1,980 @@
+// Data Management
+class DataManager {
+    constructor() {
+        this.initializeData();
+    }
+
+    initializeData() {
+        // Initialize authorized emails list
+        if (!localStorage.getItem('authorizedEmails')) {
+            // Default admin email
+            const authorizedEmails = [{
+                email: 'admin@118ferrara.it',
+                name: 'Amministratore',
+                isAdmin: true,
+                addedAt: new Date().toISOString()
+            }];
+            localStorage.setItem('authorizedEmails', JSON.stringify(authorizedEmails));
+        }
+
+        if (!localStorage.getItem('courses')) {
+            localStorage.setItem('courses', JSON.stringify([]));
+        } else {
+            // Migrate existing courses to add maxParticipants if missing
+            const courses = JSON.parse(localStorage.getItem('courses'));
+            let needsMigration = false;
+
+            courses.forEach(course => {
+                if (!course.maxParticipants) {
+                    course.maxParticipants = 20; // Default value
+                    needsMigration = true;
+                }
+                // Migrate old date fields to new single date field
+                if (course.startDate && !course.date) {
+                    course.date = course.startDate;
+                    delete course.startDate;
+                    delete course.endDate;
+                    needsMigration = true;
+                }
+                // Add default start time if missing
+                if (!course.startTime) {
+                    course.startTime = '09:00';
+                    needsMigration = true;
+                }
+            });
+
+            if (needsMigration) {
+                localStorage.setItem('courses', JSON.stringify(courses));
+            }
+        }
+
+        if (!localStorage.getItem('enrollments')) {
+            localStorage.setItem('enrollments', JSON.stringify([]));
+        }
+
+        if (!localStorage.getItem('courseMessages')) {
+            localStorage.setItem('courseMessages', JSON.stringify([]));
+        }
+    }
+
+    getAuthorizedEmails() {
+        try {
+            return JSON.parse(localStorage.getItem('authorizedEmails')) || [];
+        } catch (e) {
+            console.error('Error parsing authorizedEmails:', e);
+            return [];
+        }
+    }
+
+    saveAuthorizedEmails(emails) {
+        localStorage.setItem('authorizedEmails', JSON.stringify(emails));
+    }
+
+    getCourses() {
+        try {
+            return JSON.parse(localStorage.getItem('courses')) || [];
+        } catch (e) {
+            console.error('Error parsing courses:', e);
+            return [];
+        }
+    }
+
+    saveCourses(courses) {
+        localStorage.setItem('courses', JSON.stringify(courses));
+    }
+
+    getEnrollments() {
+        try {
+            return JSON.parse(localStorage.getItem('enrollments')) || [];
+        } catch (e) {
+            console.error('Error parsing enrollments:', e);
+            return [];
+        }
+    }
+
+    saveEnrollments(enrollments) {
+        localStorage.setItem('enrollments', JSON.stringify(enrollments));
+    }
+
+    getCurrentUser() {
+        const userEmail = localStorage.getItem('currentUserEmail');
+        if (userEmail) {
+            return this.getAuthorizedEmails().find(u => u.email === userEmail);
+        }
+        return null;
+    }
+
+    setCurrentUser(email) {
+        localStorage.setItem('currentUserEmail', email);
+    }
+
+    logout() {
+        localStorage.removeItem('currentUserEmail');
+    }
+
+    getCourseMessages(courseId) {
+        try {
+            const messages = JSON.parse(localStorage.getItem('courseMessages')) || [];
+            return messages.filter(m => m.courseId === courseId);
+        } catch (e) {
+            console.error('Error parsing courseMessages:', e);
+            return [];
+        }
+    }
+
+    saveCourseMessage(message) {
+        try {
+            const messages = JSON.parse(localStorage.getItem('courseMessages')) || [];
+            messages.push(message);
+            localStorage.setItem('courseMessages', JSON.stringify(messages));
+        } catch (e) {
+            console.error('Error saving courseMessage:', e);
+            // Initialize if corrupted
+            localStorage.setItem('courseMessages', JSON.stringify([message]));
+        }
+    }
+
+    deleteAllCourseMessages(courseId) {
+        try {
+            let messages = JSON.parse(localStorage.getItem('courseMessages')) || [];
+            messages = messages.filter(m => m.courseId !== courseId);
+            localStorage.setItem('courseMessages', JSON.stringify(messages));
+        } catch (e) {
+            console.error('Error deleting course messages:', e);
+        }
+    }
+}
+
+// App Class
+class CourseApp {
+    constructor() {
+        this.dataManager = new DataManager();
+        this.currentUser = null;
+        this.currentCourse = null;
+        this.currentCourse = null;
+        this.audioContext = null;
+        this.showingCompleted = false;
+        this.init();
+    }
+
+    initAudio() {
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+
+    playTone(freq, type, duration, startTime = 0) {
+        if (!this.audioContext) this.initAudio();
+        const ctx = this.audioContext;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
+
+        gain.gain.setValueAtTime(0.1, ctx.currentTime + startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(ctx.currentTime + startTime);
+        osc.stop(ctx.currentTime + startTime + duration);
+    }
+
+    playEnrollSound() {
+        // Victory arpeggio: C - E - G - C(high)
+        this.playTone(523.25, 'sine', 0.2, 0);   // C5
+        this.playTone(659.25, 'sine', 0.2, 0.15); // E5
+        this.playTone(783.99, 'sine', 0.2, 0.30); // G5
+        this.playTone(1046.50, 'sine', 0.4, 0.45); // C6
+    }
+
+    playMessageSound() {
+        // Simple "ding"
+        this.playTone(880, 'sine', 0.1, 0); // A5
+        this.playTone(1760, 'sine', 0.3, 0.1); // A6
+    }
+
+    playUnenrollSound() {
+        // Sad descending tones: G5 - E5 - C5
+        this.playTone(783.99, 'sine', 0.2, 0); // G5
+        this.playTone(659.25, 'sine', 0.2, 0.15); // E5
+        this.playTone(523.25, 'sine', 0.4, 0.30); // C5
+    }
+
+    init() {
+        this.setupEventListeners();
+        this.checkAuth();
+    }
+
+    checkAuth() {
+        this.currentUser = this.dataManager.getCurrentUser();
+        if (this.currentUser) {
+            this.showAppScreen();
+        } else {
+            this.showAuthScreen();
+        }
+    }
+
+    showAuthScreen() {
+        document.getElementById('auth-screen').classList.add('active');
+        document.getElementById('app-screen').classList.remove('active');
+    }
+
+    showAppScreen() {
+        document.getElementById('auth-screen').classList.remove('active');
+        document.getElementById('app-screen').classList.add('active');
+        document.getElementById('user-name').textContent = this.currentUser.name;
+
+        if (this.currentUser.isAdmin) {
+            document.getElementById('admin-controls').style.display = 'block';
+        } else {
+            document.getElementById('admin-controls').style.display = 'none';
+        }
+
+        this.showCourseList();
+    }
+
+    setupEventListeners() {
+        // Auth listeners
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleLogin();
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            this.handleLogout();
+        });
+
+        // Course management listeners
+        document.getElementById('add-course-btn').addEventListener('click', () => {
+            this.openCourseModal();
+        });
+
+        document.getElementById('manage-emails-btn').addEventListener('click', () => {
+            this.openEmailModal();
+        });
+
+        document.getElementById('toggle-completed-btn').addEventListener('click', () => {
+            this.toggleCompletedCourses();
+        });
+
+        document.getElementById('back-to-list').addEventListener('click', () => {
+            this.showCourseList();
+        });
+
+        // Image upload listener
+        document.getElementById('course-image').addEventListener('change', (e) => {
+            this.handleImageUpload(e);
+        });
+
+        // Modal listeners
+        document.querySelector('.close-modal').addEventListener('click', () => {
+            this.closeCourseModal();
+        });
+
+        document.getElementById('cancel-course-btn').addEventListener('click', () => {
+            this.closeCourseModal();
+        });
+
+        document.getElementById('courseForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleSaveCourse();
+        });
+
+        // Email modal listeners
+        document.querySelector('.close-email-modal').addEventListener('click', () => {
+            this.closeEmailModal();
+        });
+
+        document.getElementById('addEmailForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleAddEmail();
+        });
+    }
+
+    handleLogin() {
+        const email = document.getElementById('login-email').value.trim().toLowerCase();
+        const errorElement = document.getElementById('login-error');
+
+        const authorizedEmails = this.dataManager.getAuthorizedEmails();
+        const user = authorizedEmails.find(u => u.email === email);
+
+        if (user) {
+            this.currentUser = user;
+            this.dataManager.setCurrentUser(user.email);
+            errorElement.style.display = 'none';
+            this.showAppScreen();
+            document.getElementById('loginForm').reset();
+        } else {
+            errorElement.textContent = 'Email non autorizzata. Contatta l\'amministratore.';
+            errorElement.style.display = 'block';
+        }
+    }
+
+    handleLogout() {
+        this.dataManager.logout();
+        this.currentUser = null;
+        this.showAuthScreen();
+    }
+
+    showCourseList() {
+        // Clean up chat polling
+        if (this.chatPollingInterval) {
+            clearInterval(this.chatPollingInterval);
+            this.chatPollingInterval = null;
+        }
+
+        document.getElementById('course-list-view').classList.add('active');
+        document.getElementById('course-detail-view').classList.remove('active');
+        this.renderCourses();
+    }
+
+    renderCourses() {
+        const allCourses = this.dataManager.getCourses();
+        let courses;
+
+        if (this.showingCompleted) {
+            courses = allCourses.filter(c => c.status === 'completed');
+            document.getElementById('toggle-completed-btn').textContent = '❌ Chiudi Archivio';
+            document.getElementById('toggle-completed-btn').style.backgroundColor = '#e74c3c'; // Red for close
+        } else {
+            courses = allCourses.filter(c => !c.status || c.status === 'active');
+            document.getElementById('toggle-completed-btn').textContent = '📂 Archivio Corsi Terminati';
+            document.getElementById('toggle-completed-btn').style.backgroundColor = '#7f8c8d'; // Grey for archive mode
+        }
+
+        const container = document.getElementById('courses-container');
+        const noCourses = document.getElementById('no-courses');
+
+        if (courses.length === 0) {
+            container.innerHTML = '';
+            noCourses.style.display = 'block';
+            noCourses.querySelector('p').textContent = this.showingCompleted ? 'Nessun corso terminato' : 'Nessun corso disponibile';
+            return;
+        }
+
+        noCourses.style.display = 'none';
+        const enrollments = this.dataManager.getEnrollments();
+
+        container.innerHTML = courses.map(course => {
+            const participants = enrollments.filter(e => e.courseId === course.id);
+            const maxParticipants = course.maxParticipants || 20;
+            const availableSpots = maxParticipants - participants.length;
+            const spotsClass = availableSpots > 0 ? 'spots-available' : 'spots-full';
+            const displayTime = course.startTime || '09:00';
+            const courseImage = course.image || '';
+            return `
+                <div class="course-card" onclick="app.showCourseDetail(${course.id})">
+                    ${courseImage ? `<img src="${courseImage}" class="course-card-image" alt="${course.title}">` : ''}
+                    <div class="course-card-content">
+                        <h3>${course.title || 'Corso senza titolo'}</h3>
+                        <p>${course.description || ''}</p>
+                        <p>${course.description || ''}</p>
+                        <p><strong>Docente:</strong> ${course.instructor || 'Non specificato'}</p>
+                        <p><strong>Luogo:</strong> ${course.location || 'Non specificato'}</p>
+                        <div class="course-meta">
+                            <span>📅 ${this.formatDate(course.date || course.startDate)} - ⏰ ${displayTime}</span>
+                            <span class="participants-count ${spotsClass}">
+                                ${participants.length}/${maxParticipants} partecipanti
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    showCourseDetail(courseId) {
+        try {
+            console.log('Showing details for course:', courseId);
+            const course = this.dataManager.getCourses().find(c => c.id === courseId);
+            if (!course) {
+                console.error('Course not found:', courseId);
+                return;
+            }
+
+            this.currentCourse = course;
+            document.getElementById('course-list-view').classList.remove('active');
+            document.getElementById('course-detail-view').classList.add('active');
+
+            this.renderCourseDetail();
+        } catch (e) {
+            console.error('Error in showCourseDetail:', e);
+            alert('Errore durante l\'apertura del corso: ' + e.message);
+        }
+    }
+
+    renderCourseDetail() {
+        if (!this.currentUser) {
+            console.error('Current user is missing in renderCourseDetail');
+            this.handleLogout(); // Redirect to login if user is missing
+            return;
+        }
+
+        const container = document.getElementById('course-detail-content');
+        if (!container) {
+            console.error('Course detail container not found');
+            return;
+        }
+
+        const course = this.currentCourse;
+        const enrollments = this.dataManager.getEnrollments().filter(e => e.courseId === course.id);
+        const users = this.dataManager.getAuthorizedEmails();
+        const isEnrolled = enrollments.some(e => e.userId === this.currentUser.email);
+        const maxParticipants = course.maxParticipants || 20;
+        const availableSpots = maxParticipants - enrollments.length;
+        const isFull = availableSpots <= 0;
+
+        const participants = enrollments.map(e => {
+            const user = users.find(u => u.email === e.userId);
+            return user ? user.name : 'Utente sconosciuto';
+        });
+
+        let actionButtons = '';
+        if (this.currentUser.isAdmin) {
+            let statusButtons = '';
+            if (!course.status || course.status === 'active') {
+                // Active course: Edit + Terminate
+                statusButtons = `
+                    <button class="edit-course-btn" onclick="app.editCourse(${course.id})">Modifica Corso</button>
+                    <button class="terminate-course-btn" onclick="app.terminateCourse(${course.id})" style="background-color: #8e44ad; color: white;">✅ Conferma Termine Corso</button>
+                 `;
+            } else {
+                // Completed course: Restore
+                statusButtons = `
+                    <button class="restore-course-btn" onclick="app.restoreCourse(${course.id})" style="background-color: #27ae60; color: white;">🔄 Ripristina Corso</button>
+                `;
+            }
+
+            actionButtons = `
+                ${statusButtons}
+                <button class="delete-course-btn" onclick="app.deleteCourse(${course.id})">Elimina Corso</button>
+            `;
+        } else {
+            if (isEnrolled) {
+                actionButtons = `<button class="unenroll-btn" onclick="app.unenrollFromCourse()">Cancellati dal Corso</button>`;
+            } else if (isFull) {
+                actionButtons = `<button class="enroll-btn" disabled style="opacity: 0.5; cursor: not-allowed;">Corso Completo</button>`;
+            } else {
+                actionButtons = `<button class="enroll-btn" onclick="app.enrollInCourse()">Partecipa al Corso</button>`;
+            }
+        }
+
+        const participantsList = participants.length > 0
+            ? `<ul class="participants-list">${participants.map(p => `<li>${p}</li>`).join('')}</ul>`
+            : '<p class="no-participants">Nessun partecipante iscritto</p>';
+
+        const content = `
+            <div class="course-detail-header">
+                ${course.image ? `<img src="${course.image}" class="course-detail-image" alt="${course.title}">` : ''}
+                <h2>${course.title}</h2>
+                <p>${course.description}</p>
+                
+                <div class="course-info">
+                    <div class="course-info-item">
+                        <label>Docente</label>
+                        <span>${course.instructor}</span>
+                    </div>
+                    <div class="course-info-item">
+                        <label>Luogo</label>
+                        <span>${course.location || 'Non specificato'}</span>
+                    </div>
+                    <div class="course-info-item">
+                        <label>Data del Corso</label>
+                        <span>${this.formatDate(course.date)}</span>
+                    </div>
+                    <div class="course-info-item">
+                        <label>Ora di Inizio</label>
+                        <span>${course.startTime || '09:00'}</span>
+                    </div>
+                    <div class="course-info-item">
+                        <label>Durata</label>
+                        <span>${course.duration} ore</span>
+                    </div>
+                    <div class="course-info-item">
+                        <label>Disponibilità</label>
+                        <span class="${availableSpots > 0 ? 'spots-available' : 'spots-full'}">
+                            ${enrollments.length}/${maxParticipants} posti occupati
+                            ${availableSpots > 0 ? `(${availableSpots} disponibili)` : '(Completo)'}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="course-actions">
+                    ${actionButtons}
+                </div>
+            </div>
+
+
+            <div class="participants-section">
+                <h3>Partecipanti Iscritti</h3>
+                ${participants.length > 0 ? `
+                    <ul class="participants-list">
+                        ${participants.map((p, idx) => `
+                            <li class="participant-item">
+                                <span>${p}</span>
+                                ${this.currentUser.isAdmin ? `<button class="remove-participant-btn" onclick="app.removeParticipant('${enrollments[idx].userId}', '${p.replace(/'/g, "\\'")}')">Rimuovi</button>` : ''}
+                            </li>
+                        `).join('')}
+                    </ul>
+                ` : '<p class="no-participants">Nessun partecipante iscritto</p>'}
+            </div>
+
+            ${(isEnrolled || this.currentUser.isAdmin) ? `
+                <div class="chat-section">
+                    <div class="chat-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3>💬 Chat del Corso</h3>
+                        ${this.currentUser.isAdmin ? `<button onclick="app.clearChat()" style="background-color: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">🗑️ Pulisci Chat</button>` : ''}
+                    </div>
+                    <div id="chat-container" class="chat-container">
+                        <div id="chat-messages" class="chat-messages"></div>
+                        <div class="chat-input-container">
+                            <input type="text" id="chat-input" placeholder="Scrivi un messaggio..." onkeypress="if(event.key==='Enter') app.sendMessage()" />
+                            <button onclick="app.sendMessage()">Invia</button>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+        `;
+
+        container.innerHTML = content;
+
+        if (isEnrolled || this.currentUser.isAdmin) {
+            this.loadChatMessages();
+            this.startChatPolling();
+        }
+    }
+
+    startChatPolling() {
+        // Clear any existing polling
+        if (this.chatPollingInterval) {
+            clearInterval(this.chatPollingInterval);
+        }
+
+        // Check for new messages every 3 seconds
+        this.chatPollingInterval = setInterval(() => {
+            if (this.currentCourse && document.getElementById('chat-messages')) {
+                const oldCount = this.lastMessageCount || 0;
+                const messages = this.dataManager.getCourseMessages(this.currentCourse.id);
+
+                if (messages.length > oldCount && oldCount > 0) {
+                    // New message received!
+                    const newMessages = messages.slice(oldCount);
+                    const lastMessage = newMessages[newMessages.length - 1];
+
+                    // Only show notification if message is from another user
+                    if (lastMessage.userEmail !== this.currentUser.email) {
+                        this.showMessageNotification(lastMessage);
+                    }
+                }
+
+                this.lastMessageCount = messages.length;
+                this.loadChatMessages();
+            }
+        }, 3000);
+    }
+
+    showMessageNotification(message) {
+        // Show browser notification if supported
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Nuovo messaggio nel corso', {
+                body: `${message.userName}: ${message.message}`,
+                icon: '/favicon.ico'
+            });
+        }
+
+        // Play sound
+        this.playMessageSound();
+
+        // Show alert notification
+        const notificationEl = document.createElement('div');
+        notificationEl.className = 'chat-notification';
+        notificationEl.innerHTML = `
+            <strong>💬 Nuovo messaggio da ${message.userName}</strong>
+            <p>${message.message}</p>
+        `;
+        document.body.appendChild(notificationEl);
+
+        // Auto-hide after 4 seconds
+        setTimeout(() => {
+            notificationEl.classList.add('fade-out');
+            setTimeout(() => notificationEl.remove(), 300);
+        }, 4000);
+
+
+    }
+
+    loadChatMessages() {
+        const messages = this.dataManager.getCourseMessages(this.currentCourse.id);
+        const container = document.getElementById('chat-messages');
+
+        if (!container) return;
+
+        if (messages.length === 0) {
+            container.innerHTML = '<p class="no-messages">Nessun messaggio ancora. Inizia la conversazione!</p>';
+            this.lastMessageCount = 0;
+            return;
+        }
+
+        container.innerHTML = messages.map(msg => `
+            <div class="chat-message ${msg.userEmail === this.currentUser.email ? 'own-message' : ''}">
+                <div class="message-header">
+                    <strong>${msg.userName}</strong>
+                    <span class="message-time">${new Date(msg.timestamp).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                </div>
+                <div class="message-content">${this.escapeHtml(msg.message)}</div>
+            </div>
+        `).join('');
+
+        // Scroll to bottom
+        container.scrollTop = container.scrollHeight;
+
+        // Update last message count
+        if (!this.lastMessageCount) {
+            this.lastMessageCount = messages.length;
+        }
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    sendMessage() {
+        const input = document.getElementById('chat-input');
+        if (!input) return;
+
+        const message = input.value.trim();
+
+        if (!message) return;
+
+        const messageData = {
+            id: Date.now(),
+            courseId: this.currentCourse.id,
+            userEmail: this.currentUser.email,
+            userName: this.currentUser.name,
+            message: message,
+            timestamp: new Date().toISOString()
+        };
+
+        this.dataManager.saveCourseMessage(messageData);
+        input.value = '';
+        this.lastMessageCount++;
+        this.loadChatMessages();
+    }
+
+    clearChat() {
+        if (confirm('Sei sicuro di voler eliminare TUTTI i messaggi di chat per questo corso? Questa azione non può essere annullata.')) {
+            this.dataManager.deleteAllCourseMessages(this.currentCourse.id);
+            this.lastMessageCount = 0;
+            this.loadChatMessages();
+            alert('Chat pulita con successo.');
+        }
+    }
+
+    removeParticipant(userEmail, userName) {
+        if (confirm(`Sei sicuro di voler rimuovere ${userName} da questo corso?`)) {
+            let enrollments = this.dataManager.getEnrollments();
+            enrollments = enrollments.filter(e =>
+                !(e.courseId === this.currentCourse.id && e.userId === userEmail)
+            );
+            this.dataManager.saveEnrollments(enrollments);
+            this.renderCourseDetail();
+        }
+    }
+
+    enrollInCourse() {
+        const enrollments = this.dataManager.getEnrollments();
+        const currentEnrollments = enrollments.filter(e => e.courseId === this.currentCourse.id);
+        const maxParticipants = this.currentCourse.maxParticipants || 20;
+
+        if (currentEnrollments.length >= maxParticipants) {
+            alert('Spiacente, il corso ha raggiunto il numero massimo di partecipanti.');
+            return;
+        }
+
+        enrollments.push({
+            id: Date.now(),
+            courseId: this.currentCourse.id,
+            userId: this.currentUser.email
+        });
+        this.dataManager.saveEnrollments(enrollments);
+
+        // Play sound
+        this.playEnrollSound();
+
+        this.renderCourseDetail();
+    }
+
+    unenrollFromCourse() {
+        if (confirm('Sei sicuro di volerti cancellare da questo corso?')) {
+            let enrollments = this.dataManager.getEnrollments();
+            enrollments = enrollments.filter(e =>
+                !(e.courseId === this.currentCourse.id && e.userId === this.currentUser.email)
+            );
+            this.dataManager.saveEnrollments(enrollments);
+
+            // Play unenroll sound
+            this.playUnenrollSound();
+
+            this.renderCourseDetail();
+        }
+    }
+
+    toggleCompletedCourses() {
+        this.showingCompleted = !this.showingCompleted;
+        this.renderCourses();
+    }
+
+    terminateCourse(courseId) {
+        if (confirm('Sei sicuro di voler terminare questo corso? Non sarà più visibile agli utenti ma potrai trovarlo nella sezione Corsi Terminati.')) {
+            let courses = this.dataManager.getCourses();
+            const index = courses.findIndex(c => c.id === courseId);
+            if (index !== -1) {
+                courses[index].status = 'completed';
+                this.dataManager.saveCourses(courses);
+
+                // Play logic sound if desired (optional)
+                this.playUnenrollSound(); // Reusing the "sad" sound for termination
+
+                this.showCourseList();
+                // Ensure we are in the active view to show it's gone
+                this.showingCompleted = false;
+                this.renderCourses();
+                alert('Corso terminato con successo.');
+            }
+        }
+    }
+
+    restoreCourse(courseId) {
+        if (confirm('Sei sicuro di voler ripristinare questo corso? Tornerà visibile tra i corsi attivi.')) {
+            let courses = this.dataManager.getCourses();
+            const index = courses.findIndex(c => c.id === courseId);
+            if (index !== -1) {
+                courses[index].status = 'active';
+                this.dataManager.saveCourses(courses);
+
+                // Enroll sound for positive feedback
+                this.playEnrollSound();
+
+                this.showCourseList();
+                // Ensure we switch to active view so user sees the restored course
+                this.showingCompleted = false;
+                this.renderCourses();
+                alert('Corso ripristinato con successo.');
+            }
+        }
+    }
+
+    handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const preview = document.getElementById('image-preview');
+                const previewImg = document.getElementById('preview-img');
+                previewImg.src = e.target.result;
+                preview.style.display = 'block';
+                this.currentImage = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    openCourseModal(course = null) {
+        const modal = document.getElementById('course-modal');
+        const title = document.getElementById('modal-title');
+        const preview = document.getElementById('image-preview');
+        const previewImg = document.getElementById('preview-img');
+
+        if (course) {
+            title.textContent = 'Modifica Corso';
+            document.getElementById('course-id').value = course.id;
+            document.getElementById('course-title').value = course.title;
+            document.getElementById('course-description').value = course.description;
+            document.getElementById('course-instructor').value = course.instructor;
+            document.getElementById('course-location').value = course.location || '';
+            document.getElementById('course-date').value = course.date;
+            document.getElementById('course-start-time').value = course.startTime || '09:00';
+            document.getElementById('course-duration').value = course.duration;
+            document.getElementById('course-max-participants').value = course.maxParticipants;
+
+            if (course.image) {
+                previewImg.src = course.image;
+                preview.style.display = 'block';
+                this.currentImage = course.image;
+            } else {
+                preview.style.display = 'none';
+                this.currentImage = null;
+            }
+        } else {
+            title.textContent = 'Aggiungi Corso';
+            document.getElementById('courseForm').reset();
+            document.getElementById('course-id').value = '';
+            preview.style.display = 'none';
+            this.currentImage = null;
+        }
+
+        modal.classList.add('active');
+    }
+
+    closeCourseModal() {
+        document.getElementById('course-modal').classList.remove('active');
+        document.getElementById('courseForm').reset();
+        document.getElementById('image-preview').style.display = 'none';
+        this.currentImage = null;
+    }
+
+    handleSaveCourse() {
+        const id = document.getElementById('course-id').value;
+        const courseData = {
+            title: document.getElementById('course-title').value.toUpperCase(),
+            description: document.getElementById('course-description').value.toUpperCase(),
+            instructor: document.getElementById('course-instructor').value.toUpperCase(),
+            location: document.getElementById('course-location').value.toUpperCase(),
+            date: document.getElementById('course-date').value,
+            startTime: document.getElementById('course-start-time').value,
+            image: this.currentImage || null,
+            duration: document.getElementById('course-duration').value,
+            maxParticipants: parseInt(document.getElementById('course-max-participants').value)
+        };
+
+        let courses = this.dataManager.getCourses();
+
+        if (id) {
+            // Update existing course
+            const index = courses.findIndex(c => c.id === parseInt(id));
+            courses[index] = { ...courses[index], ...courseData };
+        } else {
+            // Create new course
+            courseData.id = Date.now();
+            courses.push(courseData);
+        }
+
+        this.dataManager.saveCourses(courses);
+        this.closeCourseModal();
+
+        if (this.currentCourse && this.currentCourse.id === parseInt(id)) {
+            this.currentCourse = courses.find(c => c.id === parseInt(id));
+            this.renderCourseDetail();
+        } else {
+            this.showCourseList();
+            // Switch to active view to show the new/modified course
+            this.showingCompleted = false;
+            this.renderCourses();
+        }
+    }
+
+    editCourse(courseId) {
+        const course = this.dataManager.getCourses().find(c => c.id === courseId);
+        if (course) {
+            this.openCourseModal(course);
+        }
+    }
+
+    deleteCourse(courseId) {
+        if (confirm('Sei sicuro di voler eliminare questo corso? Verranno eliminate anche tutte le iscrizioni.')) {
+            let courses = this.dataManager.getCourses();
+            courses = courses.filter(c => c.id !== courseId);
+            this.dataManager.saveCourses(courses);
+
+            let enrollments = this.dataManager.getEnrollments();
+            enrollments = enrollments.filter(e => e.courseId !== courseId);
+            this.dataManager.saveEnrollments(enrollments);
+
+            this.showCourseList();
+        }
+    }
+
+    // Email Management
+    openEmailModal() {
+        const modal = document.getElementById('email-modal');
+        modal.classList.add('active');
+        this.renderAuthorizedEmails();
+    }
+
+    closeEmailModal() {
+        document.getElementById('email-modal').classList.remove('active');
+        document.getElementById('addEmailForm').reset();
+    }
+
+    renderAuthorizedEmails() {
+        const emails = this.dataManager.getAuthorizedEmails();
+        const container = document.getElementById('authorized-emails-list');
+
+        if (emails.length === 0) {
+            container.innerHTML = '<p class="no-data">Nessuna email autorizzata</p>';
+            return;
+        }
+
+        container.innerHTML = emails.map(email => `
+            <div class="email-item">
+                <div class="email-info">
+                    <strong>${email.name}</strong>
+                    <span>${email.email}</span>
+                    ${email.notes ? `<span class="email-notes">📝 ${email.notes}</span>` : ''}
+                    ${email.isAdmin ? '<span class="admin-badge">Admin</span>' : ''}
+                </div>
+                ${!email.isAdmin ? `<button class="delete-email-btn" onclick="app.deleteEmail('${email.email}')">Elimina</button>` : ''}
+            </div>
+        `).join('');
+    }
+
+    handleAddEmail() {
+        const email = document.getElementById('new-email').value.trim().toLowerCase();
+        const name = document.getElementById('new-email-name').value.trim();
+        const notes = document.getElementById('new-email-notes').value.trim();
+
+        let emails = this.dataManager.getAuthorizedEmails();
+
+        if (emails.find(e => e.email === email)) {
+            alert('Questa email è già autorizzata');
+            return;
+        }
+
+        const newEmail = {
+            email,
+            name,
+            notes: notes || '',
+            isAdmin: false,
+            addedAt: new Date().toISOString()
+        };
+
+        emails.push(newEmail);
+        this.dataManager.saveAuthorizedEmails(emails);
+
+        document.getElementById('addEmailForm').reset();
+        this.renderAuthorizedEmails();
+    }
+
+    deleteEmail(email) {
+        if (confirm(`Sei sicuro di voler rimuovere l'autorizzazione per ${email}?`)) {
+            let emails = this.dataManager.getAuthorizedEmails();
+            emails = emails.filter(e => e.email !== email);
+            this.dataManager.saveAuthorizedEmails(emails);
+            this.renderAuthorizedEmails();
+        }
+    }
+
+    formatDate(dateString) {
+        if (!dateString) return 'Data da definire';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+}
+
+// Initialize app
+// Initialize app
+window.app = null;
+document.addEventListener('DOMContentLoaded', () => {
+    try {
+        window.app = new CourseApp();
+        console.log('App initialized and attached to window');
+    } catch (e) {
+        console.error('Failed to initialize app:', e);
+        alert('Errore fatale durante l\'inizializzazione dell\'app: ' + e.message);
+    }
+});

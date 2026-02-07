@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Corsi di Formazione - 118 Ferrara</title>
+    <meta name="description"
+        content="Sistema di gestione dei corsi di formazione per il personale del 118 della provincia di Ferrara.">
+    <meta name="keywords" content="118, Ferrara, corsi, formazione, personale, sanitario">
+    <meta property="og:title" content="Gestione Corsi di Formazione - 118 Ferrara">
+    <meta property="og:description" content="Piattaforma per l'iscrizione e la gestione dei corsi formativi del 118.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="email-styles.css">
+    <link rel="stylesheet" href="chat-styles.css">
+    <script>
+        window.onerror = function (msg, url, lineNo, columnNo, error) {
+            const errorContainer = document.createElement('div');
+            errorContainer.style.position = 'fixed';
+            errorContainer.style.top = '0';
+            errorContainer.style.left = '0';
+            errorContainer.style.width = '100%';
+            errorContainer.style.backgroundColor = '#e74c3c';
+            errorContainer.style.color = 'white';
+            errorContainer.style.padding = '10px';
+            errorContainer.style.zIndex = '9999';
+            errorContainer.style.textAlign = 'center';
+            errorContainer.innerHTML = `<strong>Errore:</strong> ${msg} (Linea: ${lineNo})`;
+
+            // Add close button
+            const closeBtn = document.createElement('span');
+            closeBtn.innerHTML = '&times;';
+            closeBtn.style.float = 'right';
+            closeBtn.style.cursor = 'pointer';
+            closeBtn.style.fontWeight = 'bold';
+            closeBtn.onclick = function () { errorContainer.remove(); };
+            errorContainer.appendChild(closeBtn);
+
+            document.body.appendChild(errorContainer);
+            return false;
+        };
+
+        window.addEventListener('unhandledrejection', function (event) {
+            const errorContainer = document.createElement('div');
+            errorContainer.style.position = 'fixed';
+            errorContainer.style.top = '40px'; // Below the first error if any
+            errorContainer.style.left = '0';
+            errorContainer.style.width = '100%';
+            errorContainer.style.backgroundColor = '#e67e22';
+            errorContainer.style.color = 'white';
+            errorContainer.style.padding = '10px';
+            errorContainer.style.zIndex = '9999';
+            errorContainer.style.textAlign = 'center';
+            errorContainer.innerHTML = `<strong>Promessa non gestita:</strong> ${event.reason}`;
+
+            // Add close button
+            const closeBtn = document.createElement('span');
+            closeBtn.innerHTML = '&times;';
+            closeBtn.style.float = 'right';
+            closeBtn.style.cursor = 'pointer';
+            closeBtn.style.fontWeight = 'bold';
+            closeBtn.onclick = function () { errorContainer.remove(); };
+            errorContainer.appendChild(closeBtn);
+
+            document.body.appendChild(errorContainer);
+        });
+    </script>
+</head>
+
+<body>
+    <!-- Title Bar -->
+    <div class="title-bar">
+        <h1>CORSI DI FORMAZIONE DEL PERSONALE DEL 118 DELLA PROVINCIA DI FERRARA</h1>
+    </div>
+
+    <!-- Login/Registration Screen -->
+    <div id="auth-screen" class="screen active">
+        <div class="auth-container">
+            <h1>Gestione Corsi di Formazione</h1>
+
+            <div id="login-form" class="form-container active">
+                <h2>Accedi con la tua mail aziendale</h2>
+                <form id="loginForm">
+                    <input type="email" id="login-email" placeholder="Inserisci la tua email" required>
+                    <button type="submit">Accedi</button>
+                </form>
+                <p id="login-error" style="color: #e74c3c; display: none; margin-top: 10px;"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Screen -->
+    <div id="app-screen" class="screen">
+        <div class="app-header">
+            <div class="header-content">
+                <span id="user-name"></span>
+                <button id="logout-btn">Esci</button>
+            </div>
+        </div>
+
+        <!-- Course List View -->
+        <div id="course-list-view" class="view active">
+            <div class="container">
+                <div class="admin-controls" id="admin-controls" style="display: none;">
+                    <button id="add-course-btn">+ Aggiungi Corso</button>
+                    <button id="manage-emails-btn">📧 Gestisci Email Autorizzate</button>
+                    <button id="toggle-completed-btn" style="background-color: #7f8c8d;">📂 Archivio Corsi
+                        Terminati</button>
+                </div>
+
+                <div id="courses-container" class="courses-grid">
+                    <!-- Courses will be rendered here -->
+                </div>
+
+                <div id="no-courses" class="no-data" style="display: none;">
+                    <p>Nessun corso disponibile</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Course Detail View -->
+        <div id="course-detail-view" class="view">
+            <div class="container">
+                <button id="back-to-list" class="back-btn">← Torna alla lista</button>
+
+                <div id="course-detail-content">
+                    <!-- Course details will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Course Modal -->
+    <div id="course-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="modal-title">Aggiungi Corso</h2>
+            <form id="courseForm">
+                <input type="hidden" id="course-id">
+
+                <label>Immagine del Corso</label>
+                <input type="file" id="course-image" accept="image/*">
+                <div id="image-preview" style="margin-bottom: 15px; display: none;">
+                    <img id="preview-img"
+                        style="width: 100%; max-width: 300px; height: 180px; object-fit: contain; background-color: #dfe6e9; border-radius: 8px; margin-top: 10px;">
+                </div>
+
+                <label>Titolo del Corso</label>
+                <input type="text" id="course-title" required>
+
+                <label>Descrizione</label>
+                <textarea id="course-description" rows="4" required></textarea>
+
+                <label>Docente</label>
+                <input type="text" id="course-instructor" required>
+
+                <label>Luogo</label>
+                <input type="text" id="course-location" required>
+
+                <label>Data del Corso</label>
+                <input type="date" id="course-date" required>
+
+                <label>Ora di Inizio</label>
+                <input type="time" id="course-start-time" required>
+
+                <label>Durata (ore)</label>
+                <input type="number" id="course-duration" required>
+
+                <label>Numero Massimo Partecipanti</label>
+                <input type="number" id="course-max-participants" min="1" required>
+
+                <div class="modal-actions">
+                    <button type="submit" id="save-course-btn">Salva</button>
+                    <button type="button" class="cancel-btn" id="cancel-course-btn">Annulla</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Email Management Modal -->
+    <div id="email-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-email-modal">&times;</span>
+            <h2>Gestione Email Autorizzate</h2>
+
+            <div class="email-add-section">
+                <h3>Aggiungi Email</h3>
+                <form id="addEmailForm">
+                    <input type="email" id="new-email" placeholder="email@esempio.it" required>
+                    <input type="text" id="new-email-name" placeholder="Nome completo" required>
+                    <textarea id="new-email-notes" placeholder="Note (opzionale)" rows="3"></textarea>
+                    <button type="submit">Aggiungi</button>
+                </form>
+            </div>
+
+            <div class="email-list-section">
+                <h3>Email Autorizzate</h3>
+                <div id="authorized-emails-list">
+                    <!-- Email list will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
