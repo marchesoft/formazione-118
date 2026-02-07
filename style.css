@@ -206,15 +206,18 @@ header h1 {
 /* Admin Controls */
 .admin-controls {
     margin-bottom: 30px;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
+    justify-content: center;
+    overflow-x: auto;
 }
 
 .admin-controls button {
-    width: 100%;
-    padding: 8px 16px;
-    font-size: 13.5px;
+    flex: 0 1 auto;
+    padding: 8px 12px;
+    font-size: 13px;
     font-weight: bold;
     border: none;
     border-radius: 6px;
@@ -225,7 +228,7 @@ header h1 {
     justify-content: center;
     text-align: center;
     color: white;
-    height: auto;
+    white-space: nowrap;
 }
 
 #add-course-btn {
@@ -313,8 +316,10 @@ header h1 {
 
 .course-card .course-meta {
     display: flex;
-    flex-direction: column;
-    gap: 5px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
     margin-top: 15px;
     padding-top: 15px;
     border-top: 1px solid #bdc3c7;
@@ -663,14 +668,21 @@ header h1 {
     }
 
     .admin-controls {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        overflow-x: auto;
         gap: 8px;
+        -webkit-overflow-scrolling: touch;
+        /* Smooth scrolling for mobile */
     }
 
     .admin-controls button {
-        font-size: 12px;
-        padding: 8px 10px;
+        font-size: 11px;
+        padding: 6px 10px;
+        flex: 0 0 auto;
+        /* Stop them from shrinking or growing */
     }
 
     .course-card-image {
