@@ -51,23 +51,44 @@ class DataManager {
     }
 
     async saveCourses(courses) {
-        const mapped = courses.map(c => ({
-            ...c,
-            starttime: c.startTime,
-            maxparticipants: c.maxParticipants,
-            createdat: c.createdAt
-        }));
-        // Remove the camelCase ones to avoid Supabase errors if it strictly validates
-        mapped.forEach(c => {
-            delete c.startTime;
-            delete c.maxParticipants;
-            delete c.createdAt;
+        const mapped = courses.map(c => {
+            const entry = {
+                ...c,
+                starttime: c.startTime,
+                maxparticipants: c.maxParticipants,
+                createdat: c.createdAt
+            };
+            // Remove the camelCase ones to avoid Supabase errors
+            delete entry.startTime;
+            delete entry.maxParticipants;
+            delete entry.createdAt;
+            return entry;
         });
 
         const { error } = await this.supabase
             .from('courses')
             .upsert(mapped);
-        if (error) console.error('Error saving courses:', error);
+        if (error) {
+            console.error('Error saving courses:', error);
+            throw error;
+        }
+    }
+
+    async updateCourse(courseId, updates) {
+        const mapped = { ...updates };
+        if (updates.startTime) { mapped.starttime = updates.startTime; delete mapped.startTime; }
+        if (updates.maxParticipants) { mapped.maxparticipants = updates.maxParticipants; delete mapped.maxParticipants; }
+        if (updates.createdAt) { mapped.createdat = updates.createdAt; delete mapped.createdAt; }
+
+        const { error } = await this.supabase
+            .from('courses')
+            .update(mapped)
+            .eq('id', courseId);
+
+        if (error) {
+            console.error('Error updating course:', error);
+            throw error;
+        }
     }
 
     async deleteCourse(courseId) {
@@ -753,40 +774,29 @@ class CourseApp {
 
     async terminateCourse(courseId) {
         if (confirm('Sei sicuro di voler terminare questo corso? Non sarà più visibile agli utenti ma potrai trovarlo nella sezione Corsi Terminati.')) {
-            let courses = await this.dataManager.getCourses();
-            const index = courses.findIndex(c => c.id === courseId);
-            if (index !== -1) {
-                courses[index].status = 'completed';
-                await this.dataManager.saveCourses([courses[index]]);
-
-                // Play logic sound if desired (optional)
-                this.playUnenrollSound(); // Reusing the "sad" sound for termination
-
-                await this.showCourseList();
-                // Ensure we are in the active view to show it's gone
-                this.showingCompleted = false;
-                await this.renderCourses();
+            try {
+                await this.dataManager.updateCourse(courseId, { status: 'completed' });
+                this.playUnenrollSound();
                 alert('Corso terminato con successo.');
+                await this.showCourseList();
+            } catch (error) {
+                alert('Errore durante la terminazione del corso.');
             }
         }
     }
 
     async restoreCourse(courseId) {
         if (confirm('Sei sicuro di voler ripristinare questo corso? Tornerà visibile tra i corsi attivi.')) {
-            let courses = await this.dataManager.getCourses();
-            const index = courses.findIndex(c => c.id === courseId);
-            if (index !== -1) {
-                courses[index].status = 'active';
-                await this.dataManager.saveCourses([courses[index]]);
-
-                // Enroll sound for positive feedback
+            try {
+                await this.dataManager.updateCourse(courseId, { status: 'active' });
                 this.playEnrollSound();
-
-                await this.showCourseList();
-                // Ensure we switch to active view so user sees the restored course
-                this.showingCompleted = false;
-                await this.renderCourses();
                 alert('Corso ripristinato con successo.');
+
+                // Switch to active view to show the restored course
+                this.showingCompleted = false;
+                await this.showCourseList();
+            } catch (error) {
+                alert('Errore durante il ripristino del corso.');
             }
         }
     }
@@ -851,35 +861,41 @@ class CourseApp {
     }
 
     async handleSaveCourse() {
-        const id = document.getElementById('course-id').value;
-        const courseData = {
-            title: document.getElementById('course-title').value.toUpperCase(),
-            description: document.getElementById('course-description').value.toUpperCase(),
-            instructor: document.getElementById('course-instructor').value.toUpperCase(),
-            location: document.getElementById('course-location').value.toUpperCase(),
-            date: document.getElementById('course-date').value,
-            startTime: document.getElementById('course-start-time').value,
-            image: this.currentImage || null,
-            duration: document.getElementById('course-duration').value,
-            maxParticipants: parseInt(document.getElementById('course-max-participants').value)
-        };
+        try {
+            const id = document.getElementById('course-id').value;
+            const courseData = {
+                title: document.getElementById('course-title').value.toUpperCase(),
+                description: document.getElementById('course-description').value.toUpperCase(),
+                instructor: document.getElementById('course-instructor').value.toUpperCase(),
+                location: document.getElementById('course-location').value.toUpperCase(),
+                date: document.getElementById('course-date').value,
+                startTime: document.getElementById('course-start-time').value,
+                image: this.currentImage || null,
+                duration: document.getElementById('course-duration').value,
+                maxParticipants: parseInt(document.getElementById('course-max-participants').value)
+            };
 
-        if (id) {
-            courseData.id = parseInt(id);
-        }
-
-        await this.dataManager.saveCourses([courseData]);
-        this.closeCourseModal();
-
-        if (id) {
-            const courses = await this.dataManager.getCourses();
-            this.currentCourse = courses.find(c => c.id === parseInt(id));
-            await this.renderCourseDetail();
-        } else {
-            await this.showCourseList();
-            // Switch to active view to show the new/modified course
-            this.showingCompleted = false;
-            await this.renderCourses();
+            if (id) {
+                const courseId = parseInt(id);
+                // When editing, we use update to avoid overwriting fields like 'status' or 'createdat' accidentally
+                await this.dataManager.updateCourse(courseId, courseData);
+                this.closeCourseModal();
+                const courses = await this.dataManager.getCourses();
+                this.currentCourse = courses.find(c => c.id === courseId);
+                await this.renderCourseDetail();
+            } else {
+                // New course
+                courseData.status = 'active';
+                courseData.createdAt = new Date().toISOString();
+                await this.dataManager.saveCourses([courseData]);
+                this.closeCourseModal();
+                this.showingCompleted = false;
+                await this.showCourseList();
+            }
+            alert('Corso salvato con successo.');
+        } catch (error) {
+            console.error('Save failed:', error);
+            alert('Errore durante il salvataggio del corso.');
         }
     }
 
