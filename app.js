@@ -37,7 +37,7 @@ class DataManager {
         const { data, error } = await this.supabase
             .from('courses')
             .select('*')
-            .order('createdAt', { ascending: false });
+            .order('createdat', { ascending: false });
         if (error) {
             console.error('Error fetching courses:', error);
             return [];
@@ -180,7 +180,7 @@ class DataManager {
         const { error } = await this.supabase
             .from('course_messages')
             .delete()
-            .eq('courseId', courseId);
+            .eq('courseid', courseId);
         if (error) console.error('Error deleting messages:', error);
     }
 }
@@ -190,7 +190,6 @@ class CourseApp {
     constructor() {
         this.dataManager = new DataManager();
         this.currentUser = null;
-        this.currentCourse = null;
         this.currentCourse = null;
         this.audioContext = null;
         this.showingCompleted = false;
@@ -746,9 +745,9 @@ class CourseApp {
         }
     }
 
-    toggleCompletedCourses() {
+    async toggleCompletedCourses() {
         this.showingCompleted = !this.showingCompleted;
-        this.renderCourses();
+        await this.renderCourses();
     }
 
     async terminateCourse(courseId) {
