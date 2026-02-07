@@ -206,59 +206,36 @@ header h1 {
 
 /* Admin Controls */
 .admin-controls {
-    margin-bottom: 30px;
+    margin-bottom: 25px;
     display: flex;
     flex-direction: row;
-    flex-wrap: nowrap;
-    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
     width: 100%;
 }
 
 .admin-controls button {
-    flex: 1;
-    min-width: 0;
-    padding: 6px 3px;
-    font-size: 11px;
+    background: none !important;
+    border: none !important;
+    color: #2980b9 !important;
+    padding: 0 !important;
+    font-size: 14px !important;
     font-weight: bold;
-    border: none;
-    border-radius: 6px;
+    text-decoration: underline;
     cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
+    width: auto !important;
+    flex: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+    transition: color 0.2s ease;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    text-align: center;
-    color: white;
-    white-space: normal;
-    line-height: 1.2;
-    text-transform: uppercase;
 }
 
-#add-course-btn {
-    background-color: #27ae60;
-}
-
-#add-course-btn:hover {
-    background-color: #219150;
-    transform: translateY(-2px);
-}
-
-#manage-emails-btn {
-    background-color: #2980b9;
-}
-
-#manage-emails-btn:hover {
-    background-color: #2471a3;
-    transform: translateY(-2px);
-}
-
-#toggle-completed-btn {
-    background-color: #7f8c8d;
-}
-
-#toggle-completed-btn:hover {
-    background-color: #6c7a7b;
-    transform: translateY(-2px);
+.admin-controls button:hover {
+    color: #3498db !important;
+    text-decoration: none;
 }
 
 #toggle-completed-btn.archive-active {
@@ -673,21 +650,17 @@ header h1 {
     .admin-controls {
         display: flex;
         flex-direction: row;
-        flex-wrap: nowrap;
-        justify-content: space-between;
-        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
         width: 100%;
-        overflow: hidden;
     }
 
     .admin-controls button {
-        flex: 1;
-        min-width: 0;
-        font-size: 9px;
-        padding: 4px 2px;
-        white-space: normal;
-        line-height: 1.1;
-        height: auto;
+        font-size: 12px !important;
+        padding: 0 !important;
+        width: auto !important;
+        flex: none !important;
     }
 
     .course-actions {
