@@ -11,6 +11,7 @@ body {
     color: #333;
     line-height: 1.6;
     text-transform: uppercase;
+    overflow-x: hidden;
 }
 
 /* Title Bar */
@@ -31,7 +32,7 @@ body {
 
 .title-bar h1 {
     margin: 0;
-    font-size: 24px;
+    font-size: clamp(14px, 4vw, 24px);
     font-weight: bold;
     text-transform: uppercase;
 }
@@ -225,7 +226,7 @@ header h1 {
 /* Courses Grid */
 .courses-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 20px;
 }
 
@@ -547,6 +548,19 @@ header h1 {
 
 /* Responsive */
 @media (max-width: 768px) {
+    .container {
+        padding: 15px 10px;
+    }
+
+    .title-bar {
+        padding: 15px 10px;
+    }
+
+    .screen,
+    .screen.active {
+        top: 60px;
+    }
+
     .courses-grid {
         grid-template-columns: 1fr;
     }
@@ -561,5 +575,26 @@ header h1 {
 
     .course-actions button {
         width: 100%;
+        padding: 15px;
+        /* Bigger touch target */
+    }
+
+    .admin-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .admin-controls button {
+        width: 100%;
+    }
+
+    .course-card-image {
+        height: 150px;
+    }
+
+    .modal-content {
+        width: 95%;
+        padding: 20px;
     }
 }

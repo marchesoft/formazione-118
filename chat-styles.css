@@ -27,15 +27,26 @@
 
 .chat-message {
     background: white;
-    padding: 12px 15px;
+    padding: 10px 12px;
     border-radius: 8px;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .chat-message.own-message {
     background-color: #e3f2fd;
-    margin-left: 40px;
+    margin-left: 20px;
+}
+
+@media (max-width: 768px) {
+    .chat-messages {
+        height: 300px;
+        padding: 10px;
+    }
+
+    .chat-message.own-message {
+        margin-left: 10px;
+    }
 }
 
 .message-header {

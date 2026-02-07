@@ -1,105 +1,96 @@
-// Data Management
+// Data Management with Supabase
 class DataManager {
     constructor() {
-        this.initializeData();
+        this.supabase = supabaseClient; // From config.js
     }
 
-    initializeData() {
-        // Initialize authorized emails list
-        if (!localStorage.getItem('authorizedEmails')) {
-            // Default admin email
-            const authorizedEmails = [{
-                email: 'admin@118ferrara.it',
-                name: 'Amministratore',
-                isAdmin: true,
-                addedAt: new Date().toISOString()
-            }];
-            localStorage.setItem('authorizedEmails', JSON.stringify(authorizedEmails));
-        }
-
-        if (!localStorage.getItem('courses')) {
-            localStorage.setItem('courses', JSON.stringify([]));
-        } else {
-            // Migrate existing courses to add maxParticipants if missing
-            const courses = JSON.parse(localStorage.getItem('courses'));
-            let needsMigration = false;
-
-            courses.forEach(course => {
-                if (!course.maxParticipants) {
-                    course.maxParticipants = 20; // Default value
-                    needsMigration = true;
-                }
-                // Migrate old date fields to new single date field
-                if (course.startDate && !course.date) {
-                    course.date = course.startDate;
-                    delete course.startDate;
-                    delete course.endDate;
-                    needsMigration = true;
-                }
-                // Add default start time if missing
-                if (!course.startTime) {
-                    course.startTime = '09:00';
-                    needsMigration = true;
-                }
-            });
-
-            if (needsMigration) {
-                localStorage.setItem('courses', JSON.stringify(courses));
-            }
-        }
-
-        if (!localStorage.getItem('enrollments')) {
-            localStorage.setItem('enrollments', JSON.stringify([]));
-        }
-
-        if (!localStorage.getItem('courseMessages')) {
-            localStorage.setItem('courseMessages', JSON.stringify([]));
-        }
-    }
-
-    getAuthorizedEmails() {
-        try {
-            return JSON.parse(localStorage.getItem('authorizedEmails')) || [];
-        } catch (e) {
-            console.error('Error parsing authorizedEmails:', e);
+    async getAuthorizedEmails() {
+        const { data, error } = await this.supabase
+            .from('authorized_emails')
+            .select('*');
+        if (error) {
+            console.error('Error fetching authorizedEmails:', error);
             return [];
         }
+        return data;
     }
 
-    saveAuthorizedEmails(emails) {
-        localStorage.setItem('authorizedEmails', JSON.stringify(emails));
+    async saveAuthorizedEmails(emails) {
+        // Enforce update by upserting the entire list (or single items, but keeping parity with old logic)
+        const { error } = await this.supabase
+            .from('authorized_emails')
+            .upsert(emails);
+        if (error) console.error('Error saving authorizedEmails:', error);
     }
 
-    getCourses() {
-        try {
-            return JSON.parse(localStorage.getItem('courses')) || [];
-        } catch (e) {
-            console.error('Error parsing courses:', e);
+    async getCourses() {
+        const { data, error } = await this.supabase
+            .from('courses')
+            .select('*')
+            .order('createdAt', { ascending: false });
+        if (error) {
+            console.error('Error fetching courses:', error);
             return [];
         }
+        return data;
     }
 
-    saveCourses(courses) {
-        localStorage.setItem('courses', JSON.stringify(courses));
+    async saveCourses(courses) {
+        // Old logic saved the whole array. In Supabase we should insert/update individual items.
+        // This method will be split into create/update in handleSaveCourse, 
+        // but for migration path we just handle the array if needed.
+        const { error } = await this.supabase
+            .from('courses')
+            .upsert(courses);
+        if (error) console.error('Error saving courses:', error);
     }
 
-    getEnrollments() {
-        try {
-            return JSON.parse(localStorage.getItem('enrollments')) || [];
-        } catch (e) {
-            console.error('Error parsing enrollments:', e);
+    async deleteCourse(courseId) {
+        const { error } = await this.supabase
+            .from('courses')
+            .delete()
+            .eq('id', courseId);
+        if (error) console.error('Error deleting course:', error);
+    }
+
+    async getEnrollments() {
+        const { data, error } = await this.supabase
+            .from('enrollments')
+            .select('*');
+        if (error) {
+            console.error('Error fetching enrollments:', error);
             return [];
         }
+        return data;
     }
 
-    saveEnrollments(enrollments) {
-        localStorage.setItem('enrollments', JSON.stringify(enrollments));
+    async saveEnrollments(enrollments) {
+        const { error } = await this.supabase
+            .from('enrollments')
+            .upsert(enrollments);
+        if (error) console.error('Error saving enrollments:', error);
     }
 
-    getCurrentUser() {
+    async enrollUser(courseId, userId) {
+        const { error } = await this.supabase
+            .from('enrollments')
+            .insert({ courseId, userId });
+        if (error) console.error('Error enrolling user:', error);
+    }
+
+    async unenrollUser(courseId, userId) {
+        const { error } = await this.supabase
+            .from('enrollments')
+            .delete()
+            .match({ courseId, userId });
+        if (error) console.error('Error unenrolling user:', error);
+    }
+
+    async getCurrentUser() {
         const userEmail = localStorage.getItem('currentUserEmail');
         if (userEmail) {
-            return this.getAuthorizedEmails().find(u => u.email === userEmail);
+            const emails = await this.getAuthorizedEmails();
+            return emails.find(u => u.email === userEmail);
         }
         return null;
     }
@@ -112,36 +103,32 @@ class DataManager {
         localStorage.removeItem('currentUserEmail');
     }
 
-    getCourseMessages(courseId) {
-        try {
-            const messages = JSON.parse(localStorage.getItem('courseMessages')) || [];
-            return messages.filter(m => m.courseId === courseId);
-        } catch (e) {
-            console.error('Error parsing courseMessages:', e);
+    async getCourseMessages(courseId) {
+        const { data, error } = await this.supabase
+            .from('course_messages')
+            .select('*')
+            .eq('courseId', courseId)
+            .order('timestamp', { ascending: true });
+        if (error) {
+            console.error('Error fetching messages:', error);
             return [];
         }
+        return data;
     }
 
-    saveCourseMessage(message) {
-        try {
-            const messages = JSON.parse(localStorage.getItem('courseMessages')) || [];
-            messages.push(message);
-            localStorage.setItem('courseMessages', JSON.stringify(messages));
-        } catch (e) {
-            console.error('Error saving courseMessage:', e);
-            // Initialize if corrupted
-            localStorage.setItem('courseMessages', JSON.stringify([message]));
-        }
+    async saveCourseMessage(message) {
+        const { error } = await this.supabase
+            .from('course_messages')
+            .insert(message);
+        if (error) console.error('Error saving message:', error);
     }
 
-    deleteAllCourseMessages(courseId) {
-        try {
-            let messages = JSON.parse(localStorage.getItem('courseMessages')) || [];
-            messages = messages.filter(m => m.courseId !== courseId);
-            localStorage.setItem('courseMessages', JSON.stringify(messages));
-        } catch (e) {
-            console.error('Error deleting course messages:', e);
-        }
+    async deleteAllCourseMessages(courseId) {
+        const { error } = await this.supabase
+            .from('course_messages')
+            .delete()
+            .eq('courseId', courseId);
+        if (error) console.error('Error deleting messages:', error);
     }
 }
 
@@ -203,15 +190,15 @@ class CourseApp {
         this.playTone(523.25, 'sine', 0.4, 0.30); // C5
     }
 
-    init() {
+    async init() {
         this.setupEventListeners();
-        this.checkAuth();
+        await this.checkAuth();
     }
 
-    checkAuth() {
-        this.currentUser = this.dataManager.getCurrentUser();
+    async checkAuth() {
+        this.currentUser = await this.dataManager.getCurrentUser();
         if (this.currentUser) {
-            this.showAppScreen();
+            await this.showAppScreen();
         } else {
             this.showAuthScreen();
         }
@@ -222,7 +209,7 @@ class CourseApp {
         document.getElementById('app-screen').classList.remove('active');
     }
 
-    showAppScreen() {
+    async showAppScreen() {
         document.getElementById('auth-screen').classList.remove('active');
         document.getElementById('app-screen').classList.add('active');
         document.getElementById('user-name').textContent = this.currentUser.name;
@@ -233,7 +220,7 @@ class CourseApp {
             document.getElementById('admin-controls').style.display = 'none';
         }
 
-        this.showCourseList();
+        await this.showCourseList();
     }
 
     setupEventListeners() {
@@ -294,18 +281,18 @@ class CourseApp {
         });
     }
 
-    handleLogin() {
+    async handleLogin() {
         const email = document.getElementById('login-email').value.trim().toLowerCase();
         const errorElement = document.getElementById('login-error');
 
-        const authorizedEmails = this.dataManager.getAuthorizedEmails();
+        const authorizedEmails = await this.dataManager.getAuthorizedEmails();
         const user = authorizedEmails.find(u => u.email === email);
 
         if (user) {
             this.currentUser = user;
             this.dataManager.setCurrentUser(user.email);
             errorElement.style.display = 'none';
-            this.showAppScreen();
+            await this.showAppScreen();
             document.getElementById('loginForm').reset();
         } else {
             errorElement.textContent = 'Email non autorizzata. Contatta l\'amministratore.';
@@ -319,7 +306,7 @@ class CourseApp {
         this.showAuthScreen();
     }
 
-    showCourseList() {
+    async showCourseList() {
         // Clean up chat polling
         if (this.chatPollingInterval) {
             clearInterval(this.chatPollingInterval);
@@ -328,11 +315,11 @@ class CourseApp {
 
         document.getElementById('course-list-view').classList.add('active');
         document.getElementById('course-detail-view').classList.remove('active');
-        this.renderCourses();
+        await this.renderCourses();
     }
 
-    renderCourses() {
-        const allCourses = this.dataManager.getCourses();
+    async renderCourses() {
+        const allCourses = await this.dataManager.getCourses();
         let courses;
 
         if (this.showingCompleted) {
@@ -356,7 +343,7 @@ class CourseApp {
         }
 
         noCourses.style.display = 'none';
-        const enrollments = this.dataManager.getEnrollments();
+        const enrollments = await this.dataManager.getEnrollments();
 
         container.innerHTML = courses.map(course => {
             const participants = enrollments.filter(e => e.courseId === course.id);
@@ -371,11 +358,10 @@ class CourseApp {
                     <div class="course-card-content">
                         <h3>${course.title || 'Corso senza titolo'}</h3>
                         <p>${course.description || ''}</p>
-                        <p>${course.description || ''}</p>
                         <p><strong>Docente:</strong> ${course.instructor || 'Non specificato'}</p>
                         <p><strong>Luogo:</strong> ${course.location || 'Non specificato'}</p>
                         <div class="course-meta">
-                            <span>📅 ${this.formatDate(course.date || course.startDate)} - ⏰ ${displayTime}</span>
+                            <span>📅 ${this.formatDate(course.date)} - ⏰ ${displayTime}</span>
                             <span class="participants-count ${spotsClass}">
                                 ${participants.length}/${maxParticipants} partecipanti
                             </span>
@@ -386,10 +372,11 @@ class CourseApp {
         }).join('');
     }
 
-    showCourseDetail(courseId) {
+    async showCourseDetail(courseId) {
         try {
             console.log('Showing details for course:', courseId);
-            const course = this.dataManager.getCourses().find(c => c.id === courseId);
+            const courses = await this.dataManager.getCourses();
+            const course = courses.find(c => c.id === courseId);
             if (!course) {
                 console.error('Course not found:', courseId);
                 return;
@@ -399,14 +386,14 @@ class CourseApp {
             document.getElementById('course-list-view').classList.remove('active');
             document.getElementById('course-detail-view').classList.add('active');
 
-            this.renderCourseDetail();
+            await this.renderCourseDetail();
         } catch (e) {
             console.error('Error in showCourseDetail:', e);
             alert('Errore durante l\'apertura del corso: ' + e.message);
         }
     }
 
-    renderCourseDetail() {
+    async renderCourseDetail() {
         if (!this.currentUser) {
             console.error('Current user is missing in renderCourseDetail');
             this.handleLogout(); // Redirect to login if user is missing
@@ -420,8 +407,9 @@ class CourseApp {
         }
 
         const course = this.currentCourse;
-        const enrollments = this.dataManager.getEnrollments().filter(e => e.courseId === course.id);
-        const users = this.dataManager.getAuthorizedEmails();
+        const allEnrollments = await this.dataManager.getEnrollments();
+        const enrollments = allEnrollments.filter(e => e.courseId === course.id);
+        const users = await this.dataManager.getAuthorizedEmails();
         const isEnrolled = enrollments.some(e => e.userId === this.currentUser.email);
         const maxParticipants = course.maxParticipants || 20;
         const availableSpots = maxParticipants - enrollments.length;
@@ -461,10 +449,6 @@ class CourseApp {
                 actionButtons = `<button class="enroll-btn" onclick="app.enrollInCourse()">Partecipa al Corso</button>`;
             }
         }
-
-        const participantsList = participants.length > 0
-            ? `<ul class="participants-list">${participants.map(p => `<li>${p}</li>`).join('')}</ul>`
-            : '<p class="no-participants">Nessun partecipante iscritto</p>';
 
         const content = `
             <div class="course-detail-header">
@@ -542,7 +526,7 @@ class CourseApp {
         container.innerHTML = content;
 
         if (isEnrolled || this.currentUser.isAdmin) {
-            this.loadChatMessages();
+            await this.loadChatMessages();
             this.startChatPolling();
         }
     }
@@ -554,10 +538,10 @@ class CourseApp {
         }
 
         // Check for new messages every 3 seconds
-        this.chatPollingInterval = setInterval(() => {
+        this.chatPollingInterval = setInterval(async () => {
             if (this.currentCourse && document.getElementById('chat-messages')) {
                 const oldCount = this.lastMessageCount || 0;
-                const messages = this.dataManager.getCourseMessages(this.currentCourse.id);
+                const messages = await this.dataManager.getCourseMessages(this.currentCourse.id);
 
                 if (messages.length > oldCount && oldCount > 0) {
                     // New message received!
@@ -571,7 +555,7 @@ class CourseApp {
                 }
 
                 this.lastMessageCount = messages.length;
-                this.loadChatMessages();
+                await this.loadChatMessages();
             }
         }, 3000);
     }
@@ -606,8 +590,8 @@ class CourseApp {
 
     }
 
-    loadChatMessages() {
-        const messages = this.dataManager.getCourseMessages(this.currentCourse.id);
+    async loadChatMessages() {
+        const messages = await this.dataManager.getCourseMessages(this.currentCourse.id);
         const container = document.getElementById('chat-messages');
 
         if (!container) return;
@@ -643,7 +627,7 @@ class CourseApp {
         return div.innerHTML;
     }
 
-    sendMessage() {
+    async sendMessage() {
         const input = document.getElementById('chat-input');
         if (!input) return;
 
@@ -652,7 +636,6 @@ class CourseApp {
         if (!message) return;
 
         const messageData = {
-            id: Date.now(),
             courseId: this.currentCourse.id,
             userEmail: this.currentUser.email,
             userName: this.currentUser.name,
@@ -660,10 +643,10 @@ class CourseApp {
             timestamp: new Date().toISOString()
         };
 
-        this.dataManager.saveCourseMessage(messageData);
+        await this.dataManager.saveCourseMessage(messageData);
         input.value = '';
         this.lastMessageCount++;
-        this.loadChatMessages();
+        await this.loadChatMessages();
     }
 
     clearChat() {
@@ -675,19 +658,15 @@ class CourseApp {
         }
     }
 
-    removeParticipant(userEmail, userName) {
+    async removeParticipant(userEmail, userName) {
         if (confirm(`Sei sicuro di voler rimuovere ${userName} da questo corso?`)) {
-            let enrollments = this.dataManager.getEnrollments();
-            enrollments = enrollments.filter(e =>
-                !(e.courseId === this.currentCourse.id && e.userId === userEmail)
-            );
-            this.dataManager.saveEnrollments(enrollments);
-            this.renderCourseDetail();
+            await this.dataManager.unenrollUser(this.currentCourse.id, userEmail);
+            await this.renderCourseDetail();
         }
     }
 
-    enrollInCourse() {
-        const enrollments = this.dataManager.getEnrollments();
+    async enrollInCourse() {
+        const enrollments = await this.dataManager.getEnrollments();
         const currentEnrollments = enrollments.filter(e => e.courseId === this.currentCourse.id);
         const maxParticipants = this.currentCourse.maxParticipants || 20;
 
@@ -696,31 +675,22 @@ class CourseApp {
             return;
         }
 
-        enrollments.push({
-            id: Date.now(),
-            courseId: this.currentCourse.id,
-            userId: this.currentUser.email
-        });
-        this.dataManager.saveEnrollments(enrollments);
+        await this.dataManager.enrollUser(this.currentCourse.id, this.currentUser.email);
 
         // Play sound
         this.playEnrollSound();
 
-        this.renderCourseDetail();
+        await this.renderCourseDetail();
     }
 
-    unenrollFromCourse() {
+    async unenrollFromCourse() {
         if (confirm('Sei sicuro di volerti cancellare da questo corso?')) {
-            let enrollments = this.dataManager.getEnrollments();
-            enrollments = enrollments.filter(e =>
-                !(e.courseId === this.currentCourse.id && e.userId === this.currentUser.email)
-            );
-            this.dataManager.saveEnrollments(enrollments);
+            await this.dataManager.unenrollUser(this.currentCourse.id, this.currentUser.email);
 
             // Play unenroll sound
             this.playUnenrollSound();
 
-            this.renderCourseDetail();
+            await this.renderCourseDetail();
         }
     }
 
@@ -729,41 +699,41 @@ class CourseApp {
         this.renderCourses();
     }
 
-    terminateCourse(courseId) {
+    async terminateCourse(courseId) {
         if (confirm('Sei sicuro di voler terminare questo corso? Non sarà più visibile agli utenti ma potrai trovarlo nella sezione Corsi Terminati.')) {
-            let courses = this.dataManager.getCourses();
+            let courses = await this.dataManager.getCourses();
             const index = courses.findIndex(c => c.id === courseId);
             if (index !== -1) {
                 courses[index].status = 'completed';
-                this.dataManager.saveCourses(courses);
+                await this.dataManager.saveCourses([courses[index]]);
 
                 // Play logic sound if desired (optional)
                 this.playUnenrollSound(); // Reusing the "sad" sound for termination
 
-                this.showCourseList();
+                await this.showCourseList();
                 // Ensure we are in the active view to show it's gone
                 this.showingCompleted = false;
-                this.renderCourses();
+                await this.renderCourses();
                 alert('Corso terminato con successo.');
             }
         }
     }
 
-    restoreCourse(courseId) {
+    async restoreCourse(courseId) {
         if (confirm('Sei sicuro di voler ripristinare questo corso? Tornerà visibile tra i corsi attivi.')) {
-            let courses = this.dataManager.getCourses();
+            let courses = await this.dataManager.getCourses();
             const index = courses.findIndex(c => c.id === courseId);
             if (index !== -1) {
                 courses[index].status = 'active';
-                this.dataManager.saveCourses(courses);
+                await this.dataManager.saveCourses([courses[index]]);
 
                 // Enroll sound for positive feedback
                 this.playEnrollSound();
 
-                this.showCourseList();
+                await this.showCourseList();
                 // Ensure we switch to active view so user sees the restored course
                 this.showingCompleted = false;
-                this.renderCourses();
+                await this.renderCourses();
                 alert('Corso ripristinato con successo.');
             }
         }
@@ -828,7 +798,7 @@ class CourseApp {
         this.currentImage = null;
     }
 
-    handleSaveCourse() {
+    async handleSaveCourse() {
         const id = document.getElementById('course-id').value;
         const courseData = {
             title: document.getElementById('course-title').value.toUpperCase(),
@@ -842,58 +812,45 @@ class CourseApp {
             maxParticipants: parseInt(document.getElementById('course-max-participants').value)
         };
 
-        let courses = this.dataManager.getCourses();
-
         if (id) {
-            // Update existing course
-            const index = courses.findIndex(c => c.id === parseInt(id));
-            courses[index] = { ...courses[index], ...courseData };
-        } else {
-            // Create new course
-            courseData.id = Date.now();
-            courses.push(courseData);
+            courseData.id = parseInt(id);
         }
 
-        this.dataManager.saveCourses(courses);
+        await this.dataManager.saveCourses([courseData]);
         this.closeCourseModal();
 
-        if (this.currentCourse && this.currentCourse.id === parseInt(id)) {
+        if (id) {
+            const courses = await this.dataManager.getCourses();
             this.currentCourse = courses.find(c => c.id === parseInt(id));
-            this.renderCourseDetail();
+            await this.renderCourseDetail();
         } else {
-            this.showCourseList();
+            await this.showCourseList();
             // Switch to active view to show the new/modified course
             this.showingCompleted = false;
-            this.renderCourses();
+            await this.renderCourses();
         }
     }
 
-    editCourse(courseId) {
-        const course = this.dataManager.getCourses().find(c => c.id === courseId);
+    async editCourse(courseId) {
+        const courses = await this.dataManager.getCourses();
+        const course = courses.find(c => c.id === courseId);
         if (course) {
             this.openCourseModal(course);
         }
     }
 
-    deleteCourse(courseId) {
+    async deleteCourse(courseId) {
         if (confirm('Sei sicuro di voler eliminare questo corso? Verranno eliminate anche tutte le iscrizioni.')) {
-            let courses = this.dataManager.getCourses();
-            courses = courses.filter(c => c.id !== courseId);
-            this.dataManager.saveCourses(courses);
-
-            let enrollments = this.dataManager.getEnrollments();
-            enrollments = enrollments.filter(e => e.courseId !== courseId);
-            this.dataManager.saveEnrollments(enrollments);
-
-            this.showCourseList();
+            await this.dataManager.deleteCourse(courseId);
+            await this.showCourseList();
         }
     }
 
     // Email Management
-    openEmailModal() {
+    async openEmailModal() {
         const modal = document.getElementById('email-modal');
         modal.classList.add('active');
-        this.renderAuthorizedEmails();
+        await this.renderAuthorizedEmails();
     }
 
     closeEmailModal() {
@@ -901,8 +858,8 @@ class CourseApp {
         document.getElementById('addEmailForm').reset();
     }
 
-    renderAuthorizedEmails() {
-        const emails = this.dataManager.getAuthorizedEmails();
+    async renderAuthorizedEmails() {
+        const emails = await this.dataManager.getAuthorizedEmails();
         const container = document.getElementById('authorized-emails-list');
 
         if (emails.length === 0) {
@@ -923,12 +880,12 @@ class CourseApp {
         `).join('');
     }
 
-    handleAddEmail() {
+    async handleAddEmail() {
         const email = document.getElementById('new-email').value.trim().toLowerCase();
         const name = document.getElementById('new-email-name').value.trim();
         const notes = document.getElementById('new-email-notes').value.trim();
 
-        let emails = this.dataManager.getAuthorizedEmails();
+        let emails = await this.dataManager.getAuthorizedEmails();
 
         if (emails.find(e => e.email === email)) {
             alert('Questa email è già autorizzata');
@@ -943,19 +900,22 @@ class CourseApp {
             addedAt: new Date().toISOString()
         };
 
-        emails.push(newEmail);
-        this.dataManager.saveAuthorizedEmails(emails);
+        await this.dataManager.saveAuthorizedEmails([newEmail]);
 
         document.getElementById('addEmailForm').reset();
-        this.renderAuthorizedEmails();
+        await this.renderAuthorizedEmails();
     }
 
-    deleteEmail(email) {
+    async deleteEmail(email) {
         if (confirm(`Sei sicuro di voler rimuovere l'autorizzazione per ${email}?`)) {
-            let emails = this.dataManager.getAuthorizedEmails();
-            emails = emails.filter(e => e.email !== email);
-            this.dataManager.saveAuthorizedEmails(emails);
-            this.renderAuthorizedEmails();
+            // Re-implementing delete for authorized_emails in DataManager if needed, 
+            // but for now we follow the pattern. Let's add deleteAuthorizedEmail to DataManager.
+            const { error } = await this.dataManager.supabase
+                .from('authorized_emails')
+                .delete()
+                .eq('email', email);
+            if (error) console.error('Error deleting email:', error);
+            await this.renderAuthorizedEmails();
         }
     }
 
@@ -971,6 +931,13 @@ class CourseApp {
 window.app = null;
 document.addEventListener('DOMContentLoaded', () => {
     try {
+        if (typeof SUPABASE_URL === 'undefined' || SUPABASE_URL === 'INSERISCI_URL_SUPABASE') {
+            const warning = document.createElement('div');
+            warning.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:20px; border-radius:8px; box-shadow:0 0 20px rgba(0,0,0,0.2); z-index:10001; text-align:center;';
+            warning.innerHTML = '<h2>Configurazione Richiesta</h2><p>Inserisci i dati di Supabase in <code>config.js</code> per avviare l\'app.</p>';
+            document.body.appendChild(warning);
+            return;
+        }
         window.app = new CourseApp();
         console.log('App initialized and attached to window');
     } catch (e) {
