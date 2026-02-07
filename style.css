@@ -209,14 +209,14 @@ header h1 {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    gap: 8px;
-    justify-content: center;
-    overflow-x: auto;
+    gap: 10px;
+    width: 100%;
 }
 
 .admin-controls button {
-    flex: 0 1 auto;
-    padding: 8px 12px;
+    flex: 1;
+    min-width: 0;
+    padding: 10px 5px;
     font-size: 13px;
     font-weight: bold;
     border: none;
@@ -228,7 +228,9 @@ header h1 {
     justify-content: center;
     text-align: center;
     color: white;
-    white-space: nowrap;
+    white-space: normal;
+    /* Allow text to wrap inside the button if needed to stay on one row */
+    line-height: 1.2;
 }
 
 #add-course-btn {
@@ -671,18 +673,21 @@ header h1 {
         display: flex;
         flex-direction: row;
         flex-wrap: nowrap;
-        justify-content: flex-start;
-        overflow-x: auto;
-        gap: 8px;
-        -webkit-overflow-scrolling: touch;
-        /* Smooth scrolling for mobile */
+        justify-content: space-between;
+        gap: 6px;
+        width: 100%;
+        overflow: hidden;
+        /* Prevent potential scrollbars if we want strict row alignment */
     }
 
     .admin-controls button {
-        font-size: 11px;
-        padding: 6px 10px;
-        flex: 0 0 auto;
-        /* Stop them from shrinking or growing */
+        flex: 1;
+        min-width: 0;
+        font-size: 10px;
+        padding: 6px 4px;
+        white-space: normal;
+        line-height: 1.1;
+        height: auto;
     }
 
     .course-card-image {
