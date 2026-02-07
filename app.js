@@ -409,6 +409,7 @@ class CourseApp {
                     ${courseImage ? `<img src="${courseImage}" class="course-card-image" alt="${course.title}">` : ''}
                     <div class="course-card-content">
                         <h3>${course.title || 'Corso senza titolo'}</h3>
+                        <p>${course.description || ''}</p>
                         <p><strong>Docente:</strong> ${course.instructor || 'Non specificato'}</p>
                         <p><strong>Luogo:</strong> ${course.location || 'Non specificato'}</p>
                         <div class="course-meta">
