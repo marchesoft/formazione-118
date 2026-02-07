@@ -12,14 +12,24 @@ class DataManager {
             console.error('Error fetching authorizedEmails:', error);
             return [];
         }
-        return data;
+        return data.map(u => ({
+            ...u,
+            isAdmin: u.isadmin,
+            addedAt: u.addedat
+        }));
     }
 
     async saveAuthorizedEmails(emails) {
-        // Enforce update by upserting the entire list (or single items, but keeping parity with old logic)
+        const mapped = emails.map(u => ({
+            email: u.email,
+            name: u.name,
+            isadmin: u.isAdmin,
+            notes: u.notes,
+            addedat: u.addedAt
+        }));
         const { error } = await this.supabase
             .from('authorized_emails')
-            .upsert(emails);
+            .upsert(mapped);
         if (error) console.error('Error saving authorizedEmails:', error);
     }
 
@@ -32,16 +42,31 @@ class DataManager {
             console.error('Error fetching courses:', error);
             return [];
         }
-        return data;
+        return data.map(c => ({
+            ...c,
+            startTime: c.starttime,
+            maxParticipants: c.maxparticipants,
+            createdAt: c.createdat
+        }));
     }
 
     async saveCourses(courses) {
-        // Old logic saved the whole array. In Supabase we should insert/update individual items.
-        // This method will be split into create/update in handleSaveCourse, 
-        // but for migration path we just handle the array if needed.
+        const mapped = courses.map(c => ({
+            ...c,
+            starttime: c.startTime,
+            maxparticipants: c.maxParticipants,
+            createdat: c.createdAt
+        }));
+        // Remove the camelCase ones to avoid Supabase errors if it strictly validates
+        mapped.forEach(c => {
+            delete c.startTime;
+            delete c.maxParticipants;
+            delete c.createdAt;
+        });
+
         const { error } = await this.supabase
             .from('courses')
-            .upsert(courses);
+            .upsert(mapped);
         if (error) console.error('Error saving courses:', error);
     }
 
@@ -61,20 +86,36 @@ class DataManager {
             console.error('Error fetching enrollments:', error);
             return [];
         }
-        return data;
+        return data.map(e => ({
+            ...e,
+            courseId: e.courseid,
+            userId: e.userid,
+            enrolledAt: e.enrolledat
+        }));
     }
 
     async saveEnrollments(enrollments) {
+        const mapped = enrollments.map(e => ({
+            ...e,
+            courseid: e.courseId,
+            userid: e.userId,
+            enrolledat: e.enrolledAt
+        }));
+        mapped.forEach(e => {
+            delete e.courseId;
+            delete e.userId;
+            delete e.enrolledAt;
+        });
         const { error } = await this.supabase
             .from('enrollments')
-            .upsert(enrollments);
+            .upsert(mapped);
         if (error) console.error('Error saving enrollments:', error);
     }
 
     async enrollUser(courseId, userId) {
         const { error } = await this.supabase
             .from('enrollments')
-            .insert({ courseId, userId });
+            .insert({ courseid: courseId, userid: userId });
         if (error) console.error('Error enrolling user:', error);
     }
 
@@ -82,7 +123,7 @@ class DataManager {
         const { error } = await this.supabase
             .from('enrollments')
             .delete()
-            .match({ courseId, userId });
+            .match({ courseid: courseId, userid: userId });
         if (error) console.error('Error unenrolling user:', error);
     }
 
@@ -107,19 +148,31 @@ class DataManager {
         const { data, error } = await this.supabase
             .from('course_messages')
             .select('*')
-            .eq('courseId', courseId)
+            .eq('courseid', courseId)
             .order('timestamp', { ascending: true });
         if (error) {
             console.error('Error fetching messages:', error);
             return [];
         }
-        return data;
+        return data.map(m => ({
+            ...m,
+            courseId: m.courseid,
+            userEmail: m.useremail,
+            userName: m.username
+        }));
     }
 
     async saveCourseMessage(message) {
+        const mapped = {
+            courseid: message.courseId,
+            useremail: message.userEmail,
+            username: message.userName,
+            message: message.message,
+            timestamp: message.timestamp
+        };
         const { error } = await this.supabase
             .from('course_messages')
-            .insert(message);
+            .insert(mapped);
         if (error) console.error('Error saving message:', error);
     }
 
