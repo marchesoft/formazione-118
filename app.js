@@ -413,7 +413,7 @@ class CourseApp {
                         <p><strong>Docente:</strong> ${course.instructor || 'Non specificato'}</p>
                         <p><strong>Luogo:</strong> ${course.location || 'Non specificato'}</p>
                         <div class="course-meta">
-                            <span>📅 ${this.formatDate(course.date)} - ⏰ ${displayTime}</span>
+                            <span class="course-date-time">📅 ${this.formatDate(course.date)} - ⏰ ${displayTime}</span>
                             <span class="participants-count ${spotsClass}">
                                 ${participants.length}/${maxParticipants} partecipanti
                             </span>
