@@ -79,13 +79,31 @@
         <div class="auth-container">
             <h1>Gestione Corsi di Formazione</h1>
 
-            <div id="login-form" class="form-container active">
+            <div id="login-section" class="form-container active">
                 <h2>Accedi con la tua mail aziendale</h2>
                 <form id="loginForm">
                     <input type="email" id="login-email" placeholder="Inserisci la tua email" required>
                     <button type="submit">Accedi</button>
                 </form>
-                <p id="login-error" style="color: #e74c3c; display: none; margin-top: 10px;"></p>
+                <div class="auth-toggle">
+                    <p>Non hai un account? <a href="#" id="go-to-register">Registrati qui</a></p>
+                </div>
+                <p id="login-error" class="error-msg" style="display: none;"></p>
+            </div>
+
+            <div id="register-section" class="form-container">
+                <h2>Registrazione Nuovo Utente</h2>
+                <form id="registerForm">
+                    <input type="email" id="reg-email" placeholder="Email Aziendale" required>
+                    <input type="text" id="reg-name" placeholder="Nome e Cognome" required>
+                    <input type="text" id="reg-company" placeholder="Azienda (es. AUSL, Ospedale, ecc.)" required>
+                    <input type="text" id="reg-role" placeholder="Ruolo (es. Infermiere, Medico, ecc.)" required>
+                    <button type="submit">Registrati e Accedi</button>
+                </form>
+                <div class="auth-toggle">
+                    <p>Hai già un account? <a href="#" id="go-to-login">Accedi qui</a></p>
+                </div>
+                <p id="register-error" class="error-msg" style="display: none;"></p>
             </div>
         </div>
     </div>
@@ -177,19 +195,21 @@
         </div>
     </div>
 
-    <!-- Email Management Modal -->
+    <!-- User Management Modal -->
     <div id="email-modal" class="modal">
         <div class="modal-content">
             <span class="close-email-modal">&times;</span>
-            <h2>Gestione Email Autorizzate</h2>
+            <h2>Gestione Utenti Registrati</h2>
 
             <div class="email-add-section">
-                <h3>Aggiungi Email</h3>
+                <h3>Aggiungi Nuovo Utente</h3>
                 <form id="addEmailForm">
-                    <input type="email" id="new-email" placeholder="email@esempio.it" required>
-                    <input type="text" id="new-email-name" placeholder="Nome completo" required>
-                    <textarea id="new-email-notes" placeholder="Note (opzionale)" rows="3"></textarea>
-                    <button type="submit">Aggiungi</button>
+                    <input type="email" id="new-email" placeholder="Email" required>
+                    <input type="text" id="new-email-name" placeholder="Nome Completo" required>
+                    <input type="text" id="new-email-company" placeholder="Azienda" required>
+                    <input type="text" id="new-email-role" placeholder="Ruolo" required>
+                    <textarea id="new-email-notes" placeholder="Note (opzionale)" rows="2"></textarea>
+                    <button type="submit">Aggiungi Utente</button>
                 </form>
             </div>
 

@@ -15,7 +15,9 @@ class DataManager {
         return data.map(u => ({
             ...u,
             isAdmin: u.isadmin,
-            addedAt: u.addedat
+            addedAt: u.addedat,
+            company: u.company || 'N/A',
+            role: u.role || 'N/A'
         }));
     }
 
@@ -25,12 +27,32 @@ class DataManager {
             name: u.name,
             isadmin: u.isAdmin,
             notes: u.notes,
-            addedat: u.addedAt
+            addedat: u.addedAt,
+            company: u.company,
+            role: u.role
         }));
         const { error } = await this.supabase
             .from('authorized_emails')
             .upsert(mapped);
-        if (error) console.error('Error saving authorizedEmails:', error);
+        if (error) console.error('Error saving user data:', error);
+    }
+
+    async registerUser(userData) {
+        const mapped = {
+            email: userData.email,
+            name: userData.name,
+            company: userData.company,
+            role: userData.role,
+            isadmin: false,
+            addedat: new Date().toISOString()
+        };
+        const { error } = await this.supabase
+            .from('authorized_emails')
+            .insert(mapped);
+        if (error) {
+            console.error('Error registering user:', error);
+            throw error;
+        }
     }
 
     async getCourses() {
@@ -97,6 +119,14 @@ class DataManager {
             .delete()
             .eq('id', courseId);
         if (error) console.error('Error deleting course:', error);
+    }
+
+    async deleteAuthorizedEmail(email) {
+        const { error } = await this.supabase
+            .from('authorized_emails')
+            .delete()
+            .eq('email', email);
+        if (error) console.error('Error deleting user:', error);
     }
 
     async getEnrollments() {
@@ -280,6 +310,7 @@ class CourseApp {
     showAuthScreen() {
         document.getElementById('auth-screen').classList.add('active');
         document.getElementById('app-screen').classList.remove('active');
+        this.toggleAuthMode('login'); // Start with login
     }
 
     async showAppScreen() {
@@ -301,6 +332,21 @@ class CourseApp {
         document.getElementById('loginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleLogin();
+        });
+
+        document.getElementById('registerForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleRegister();
+        });
+
+        document.getElementById('go-to-register').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.toggleAuthMode('register');
+        });
+
+        document.getElementById('go-to-login').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.toggleAuthMode('login');
         });
 
         document.getElementById('logout-btn').addEventListener('click', () => {
@@ -354,21 +400,83 @@ class CourseApp {
         });
     }
 
+    toggleAuthMode(mode) {
+        const loginSec = document.getElementById('login-section');
+        const regSec = document.getElementById('register-section');
+        const loginErr = document.getElementById('login-error');
+        const regErr = document.getElementById('register-error');
+
+        if (mode === 'register') {
+            loginSec.classList.remove('active');
+            regSec.classList.add('active');
+        } else {
+            loginSec.classList.add('active');
+            regSec.classList.remove('active');
+        }
+        loginErr.style.display = 'none';
+        regErr.style.display = 'none';
+    }
+
     async handleLogin() {
         const email = document.getElementById('login-email').value.trim().toLowerCase();
         const errorElement = document.getElementById('login-error');
 
-        const authorizedEmails = await this.dataManager.getAuthorizedEmails();
-        const user = authorizedEmails.find(u => u.email === email);
+        if (!email) return;
 
-        if (user) {
-            this.currentUser = user;
-            this.dataManager.setCurrentUser(user.email);
+        try {
+            const authorizedEmails = await this.dataManager.getAuthorizedEmails();
+            const user = authorizedEmails.find(u => u.email === email);
+
+            if (user) {
+                this.currentUser = user;
+                this.dataManager.setCurrentUser(user.email);
+                errorElement.style.display = 'none';
+                await this.showAppScreen();
+                document.getElementById('loginForm').reset();
+            } else {
+                errorElement.textContent = 'Account non trovato. Per favore registrati.';
+                errorElement.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            errorElement.textContent = 'Errore durante l\'accesso. Riprova.';
+            errorElement.style.display = 'block';
+        }
+    }
+
+    async handleRegister() {
+        const email = document.getElementById('reg-email').value.trim().toLowerCase();
+        const name = document.getElementById('reg-name').value.trim();
+        const company = document.getElementById('reg-company').value.trim();
+        const role = document.getElementById('reg-role').value.trim();
+        const errorElement = document.getElementById('register-error');
+
+        if (!email || !name || !company || !role) return;
+
+        try {
+            // Check if already exists
+            const authorizedEmails = await this.dataManager.getAuthorizedEmails();
+            if (authorizedEmails.some(u => u.email === email)) {
+                errorElement.textContent = 'Questa email è già registrata. Accedi.';
+                errorElement.style.display = 'block';
+                return;
+            }
+
+            const userData = { email, name, company, role };
+            await this.dataManager.registerUser(userData);
+
+            // Fetch newly created user to get all fields
+            const updatedUsers = await this.dataManager.getAuthorizedEmails();
+            this.currentUser = updatedUsers.find(u => u.email === email);
+
+            this.dataManager.setCurrentUser(email);
             errorElement.style.display = 'none';
             await this.showAppScreen();
-            document.getElementById('loginForm').reset();
-        } else {
-            errorElement.textContent = 'Email non autorizzata. Contatta l\'amministratore.';
+            document.getElementById('registerForm').reset();
+            alert('Registrazione completata con successo!');
+        } catch (error) {
+            console.error('Registration error:', error);
+            errorElement.textContent = 'Errore durante la registrazione. Riprova.';
             errorElement.style.display = 'block';
         }
     }
@@ -931,7 +1039,7 @@ class CourseApp {
         const container = document.getElementById('authorized-emails-list');
 
         if (emails.length === 0) {
-            container.innerHTML = '<p class="no-data">Nessuna email autorizzata</p>';
+            container.innerHTML = '<p class="no-data">Nessun utente registrato</p>';
             return;
         }
 
@@ -940,6 +1048,7 @@ class CourseApp {
                 <div class="email-info">
                     <strong>${email.name}</strong>
                     <span>${email.email}</span>
+                    <span class="user-meta-small">🏢 ${email.company} | 💼 ${email.role}</span>
                     ${email.notes ? `<span class="email-notes">📝 ${email.notes}</span>` : ''}
                     ${email.isAdmin ? '<span class="admin-badge">Admin</span>' : ''}
                 </div>
@@ -951,38 +1060,36 @@ class CourseApp {
     async handleAddEmail() {
         const email = document.getElementById('new-email').value.trim().toLowerCase();
         const name = document.getElementById('new-email-name').value.trim();
+        const company = document.getElementById('new-email-company').value.trim();
+        const role = document.getElementById('new-email-role').value.trim();
         const notes = document.getElementById('new-email-notes').value.trim();
 
         let emails = await this.dataManager.getAuthorizedEmails();
 
         if (emails.find(e => e.email === email)) {
-            alert('Questa email è già autorizzata');
+            alert('Questa email è già registrata');
             return;
         }
 
-        const newEmail = {
+        const newUser = {
             email,
             name,
+            company,
+            role,
             notes: notes || '',
             isAdmin: false,
             addedAt: new Date().toISOString()
         };
 
-        await this.dataManager.saveAuthorizedEmails([newEmail]);
+        await this.dataManager.saveAuthorizedEmails([newUser]);
 
         document.getElementById('addEmailForm').reset();
         await this.renderAuthorizedEmails();
     }
 
     async deleteEmail(email) {
-        if (confirm(`Sei sicuro di voler rimuovere l'autorizzazione per ${email}?`)) {
-            // Re-implementing delete for authorized_emails in DataManager if needed, 
-            // but for now we follow the pattern. Let's add deleteAuthorizedEmail to DataManager.
-            const { error } = await this.dataManager.supabase
-                .from('authorized_emails')
-                .delete()
-                .eq('email', email);
-            if (error) console.error('Error deleting email:', error);
+        if (confirm(`Sei sicuro di voler eliminare l'utente ${email}?`)) {
+            await this.dataManager.deleteAuthorizedEmail(email);
             await this.renderAuthorizedEmails();
         }
     }
