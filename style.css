@@ -10,7 +10,6 @@ body {
     /* Avorio */
     color: #333;
     line-height: 1.6;
-    text-transform: uppercase;
     overflow-x: hidden;
 }
 
@@ -91,6 +90,7 @@ body {
     text-align: center;
     color: #2c3e50;
     margin-bottom: 30px;
+    text-transform: uppercase;
 }
 
 .form-container {
@@ -209,14 +209,14 @@ header h1 {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    gap: 10px;
+    gap: 8px;
     width: 100%;
 }
 
 .admin-controls button {
     flex: 1;
     min-width: 0;
-    padding: 10px 5px;
+    padding: 10px 4px;
     font-size: 13px;
     font-weight: bold;
     border: none;
@@ -230,6 +230,8 @@ header h1 {
     color: white;
     white-space: normal;
     line-height: 1.2;
+    text-transform: uppercase;
+    /* Buttons should stay uppercase for aesthetic */
 }
 
 #add-course-btn {
@@ -306,6 +308,7 @@ header h1 {
 .course-card h3 {
     color: #001f3f;
     margin-bottom: 10px;
+    text-transform: uppercase;
 }
 
 .course-card p {
