@@ -207,8 +207,8 @@ header h1 {
 .admin-controls {
     margin-bottom: 30px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
 }
 
 .admin-controls button {
@@ -663,13 +663,14 @@ header h1 {
     }
 
     .admin-controls {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
     }
 
     .admin-controls button {
-        width: 100%;
+        font-size: 12px;
+        padding: 8px 10px;
     }
 
     .course-card-image {
