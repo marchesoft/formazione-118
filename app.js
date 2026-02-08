@@ -328,7 +328,7 @@ class CourseApp {
     async showAppScreen() {
         document.getElementById('auth-screen').classList.remove('active');
         document.getElementById('app-screen').classList.add('active');
-        document.getElementById('user-name').textContent = this.currentUser.name;
+        document.getElementById('user-name').textContent = `Accesso come: ${this.currentUser.name}`;
 
         if (this.currentUser.isAdmin) {
             document.getElementById('admin-controls').style.display = 'block';
