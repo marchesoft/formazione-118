@@ -706,6 +706,15 @@ header h1 {
 
     .course-info {
         grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .course-info-item {
+        padding: 6px 10px;
+    }
+
+    .course-info-item label {
+        margin-bottom: 2px;
     }
 
     .course-actions {
