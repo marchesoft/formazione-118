@@ -428,8 +428,9 @@ header h1 {
 
 .detail-title-section p {
     color: #34495e;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: bold;
+    line-height: 1.5;
 }
 
 .course-info {
@@ -706,15 +707,15 @@ header h1 {
 
     .course-info {
         grid-template-columns: 1fr;
-        gap: 8px;
+        gap: 4px;
     }
 
     .course-info-item {
-        padding: 6px 10px;
+        padding: 4px 10px;
     }
 
     .course-info-item label {
-        margin-bottom: 2px;
+        margin-bottom: 0px;
     }
 
     .course-actions {
