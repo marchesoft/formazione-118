@@ -36,6 +36,19 @@ body {
     text-transform: uppercase;
 }
 
+.section-header {
+    background-color: #001f3f;
+    color: #ffff00;
+    padding: 10px 20px;
+    text-align: center;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    font-size: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 /* Screen Management */
 .screen {
     display: none !important;
