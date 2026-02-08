@@ -518,6 +518,11 @@ class CourseApp {
     }
 
     async renderCourses() {
+        const sectionHeader = document.getElementById('section-header-container');
+        if (sectionHeader) {
+            sectionHeader.innerHTML = `<div class="section-header">${this.showingCompleted ? 'ARCHIVIO CORSI TERMINATI' : 'CORSI ATTIVI'}</div>`;
+        }
+
         const allCourses = await this.dataManager.getCourses();
         let courses;
 
