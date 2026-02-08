@@ -400,10 +400,13 @@ header h1 {
 }
 
 .detail-header-content {
-    display: flex;
+    display: flex !important;
+    flex-direction: row !important;
     align-items: center;
     gap: 20px;
     margin-bottom: 20px;
+    flex-wrap: nowrap;
+    /* Prevent wrapping to next line */
 }
 
 .detail-title-section {
