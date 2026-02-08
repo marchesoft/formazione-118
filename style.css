@@ -416,6 +416,7 @@ header h1 {
 .detail-title-section p {
     color: #34495e;
     font-size: 14px;
+    font-weight: bold;
 }
 
 .course-info {
