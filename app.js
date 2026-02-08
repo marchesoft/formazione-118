@@ -253,6 +253,13 @@ class CourseApp {
         }
     }
 
+    async requestNotificationPermission() {
+        if ('Notification' in window) {
+            const permission = await Notification.requestPermission();
+            console.log('Notification permission:', permission);
+        }
+    }
+
     playTone(freq, type, duration, startTime = 0) {
         if (!this.audioContext) this.initAudio();
         const ctx = this.audioContext;
@@ -296,6 +303,11 @@ class CourseApp {
     async init() {
         this.setupEventListeners();
         await this.checkAuth();
+
+        // Request notification permission if user is logged in
+        if (this.currentUser) {
+            this.requestNotificationPermission();
+        }
     }
 
     async checkAuth() {
@@ -328,10 +340,16 @@ class CourseApp {
     }
 
     setupEventListeners() {
+        // Global interaction listener to initialize AudioContext
+        document.addEventListener('click', () => {
+            this.initAudio();
+        }, { once: true });
+
         // Auth listeners
         document.getElementById('loginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleLogin();
+            this.requestNotificationPermission();
         });
 
         document.getElementById('registerForm').addEventListener('submit', (e) => {
