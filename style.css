@@ -391,12 +391,28 @@ header h1 {
     height: 100px;
     object-fit: contain;
     border-radius: 4px;
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 .course-detail-header h2 {
     color: #2c3e50;
-    margin-bottom: 15px;
+    margin-bottom: 5px;
+}
+
+.detail-header-content {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.detail-title-section {
+    flex: 1;
+}
+
+.detail-title-section p {
+    color: #34495e;
+    font-size: 14px;
 }
 
 .course-info {

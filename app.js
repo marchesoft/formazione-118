@@ -633,9 +633,13 @@ class CourseApp {
 
         const content = `
             <div class="course-detail-header">
-                ${course.image ? `<img src="${course.image}" class="course-detail-image" alt="${course.title}">` : ''}
-                <h2>${course.title}</h2>
-                <p>${course.description}</p>
+                <div class="detail-header-content">
+                    ${course.image ? `<img src="${course.image}" class="course-detail-image" alt="${course.title}">` : ''}
+                    <div class="detail-title-section">
+                        <h2>${course.title}</h2>
+                        <p>${course.description}</p>
+                    </div>
+                </div>
                 
                 <div class="course-info">
                     <div class="course-info-item">
