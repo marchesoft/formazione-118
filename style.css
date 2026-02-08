@@ -655,6 +655,11 @@ header h1 {
     background-color: #7f8c8d;
 }
 
+.participant-item span {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
 /* No Data State */
 .no-data {
     text-align: center;
