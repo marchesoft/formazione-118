@@ -47,5 +47,14 @@ CREATE TABLE course_messages (
     timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Abilitazione Real-time per la chat
--- Nota: Assicurati di abilitare il Realtime nel dashboard di Supabase per la tabella course_messages
+-- Abilitazione Real-time per la chat e i dati
+-- Esegui questo nel SQL Editor di Supabase se non l'hai già fatto:
+/*
+begin;
+  -- Rimuovi se esiste già per evitare errori
+  drop publication if exists supabase_realtime;
+  
+  -- Crea la pubblicazione per le tabelle che necessitano aggiornamenti live
+  create publication supabase_realtime for table courses, enrollments, course_messages;
+commit;
+*/

@@ -300,9 +300,67 @@ class CourseApp {
         this.playTone(523.25, 'sine', 0.4, 0.30); // C5
     }
 
+    setupRealtime() {
+        console.log('Setting up Supabase Realtime listeners...');
+
+        // Listen to courses, enrollments, and messages
+        this.realtimeChannel = this.dataManager.supabase
+            .channel('app-changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'courses' },
+                () => this.refreshCurrentView()
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'enrollments' },
+                () => this.refreshCurrentView()
+            )
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'course_messages' },
+                (payload) => {
+                    const msg = payload.new;
+                    // Only handle if it's for the current course and NOT from current user
+                    if (this.currentCourse && msg.courseid === this.currentCourse.id) {
+                        if (msg.useremail !== this.currentUser.email) {
+                            const mappedMsg = {
+                                userName: msg.username,
+                                message: msg.message,
+                                userEmail: msg.useremail
+                            };
+                            this.showMessageNotification(mappedMsg);
+                        }
+                        this.loadChatMessages();
+                    }
+                }
+            )
+            .subscribe((status) => {
+                console.log('Realtime subscription status:', status);
+            });
+    }
+
+    async refreshCurrentView() {
+        console.log('Refreshing view due to Realtime update...');
+        const listView = document.getElementById('course-list-view');
+        const detailView = document.getElementById('course-detail-view');
+
+        if (listView.classList.contains('active')) {
+            await this.renderCourses();
+        } else if (detailView.classList.contains('active') && this.currentCourse) {
+            // Re-fetch course to get latest data (like maxParticipants)
+            const courses = await this.dataManager.getCourses();
+            this.currentCourse = courses.find(c => c.id === this.currentCourse.id);
+            await this.renderCourseDetail();
+        }
+    }
+
     async init() {
         this.setupEventListeners();
         await this.checkAuth();
+
+        // Initialize Realtime
+        this.setupRealtime();
 
         // Request notification permission if user is logged in
         if (this.currentUser) {
@@ -740,32 +798,8 @@ class CourseApp {
     }
 
     startChatPolling() {
-        // Clear any existing polling
-        if (this.chatPollingInterval) {
-            clearInterval(this.chatPollingInterval);
-        }
-
-        // Check for new messages every 3 seconds
-        this.chatPollingInterval = setInterval(async () => {
-            if (this.currentCourse && document.getElementById('chat-messages')) {
-                const oldCount = this.lastMessageCount || 0;
-                const messages = await this.dataManager.getCourseMessages(this.currentCourse.id);
-
-                if (messages.length > oldCount && oldCount > 0) {
-                    // New message received!
-                    const newMessages = messages.slice(oldCount);
-                    const lastMessage = newMessages[newMessages.length - 1];
-
-                    // Only show notification if message is from another user
-                    if (lastMessage.userEmail !== this.currentUser.email) {
-                        this.showMessageNotification(lastMessage);
-                    }
-                }
-
-                this.lastMessageCount = messages.length;
-                await this.loadChatMessages();
-            }
-        }, 3000);
+        // Polling removed in favor of Supabase Realtime
+        console.log('Using Realtime for chat messages.');
     }
 
     showMessageNotification(message) {
