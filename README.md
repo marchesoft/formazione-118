@@ -13,7 +13,7 @@ Questa è un'applicazione web semplice per la gestione dei corsi di formazione d
 - HTML5
 - CSS3 (Vanilla)
 - JavaScript (Vanilla)
-- LocalStorage per la persistenza dei dati.
+- Supabase per la persistenza dei dati e gestione utenti.
 
 ## Come eseguire localmente
 Basta aprire il file `index.html` in qualsiasi browser moderno.
