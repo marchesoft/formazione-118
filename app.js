@@ -12,13 +12,32 @@ class DataManager {
             console.error('Error fetching authorizedEmails:', error);
             return [];
         }
-        return data.map(u => ({
+        return data.map(u => this.mapUser(u));
+    }
+
+    async getUserByEmail(email) {
+        const { data, error } = await this.supabase
+            .from('authorized_emails')
+            .select('*')
+            .eq('email', email.toLowerCase())
+            .single();
+        if (error) {
+            if (error.code !== 'PGRST116') { // Not found error code
+                console.error('Error fetching user by email:', error);
+            }
+            return null;
+        }
+        return this.mapUser(data);
+    }
+
+    mapUser(u) {
+        return {
             ...u,
             isAdmin: u.isadmin,
             addedAt: u.addedat,
             company: u.company || 'N/A',
             role: u.role || 'N/A'
-        }));
+        };
     }
 
     async saveAuthorizedEmails(emails) {
@@ -181,8 +200,7 @@ class DataManager {
     async getCurrentUser() {
         const userEmail = localStorage.getItem('currentUserEmail');
         if (userEmail) {
-            const emails = await this.getAuthorizedEmails();
-            return emails.find(u => u.email === userEmail);
+            return await this.getUserByEmail(userEmail);
         }
         return null;
     }
@@ -348,11 +366,53 @@ class CourseApp {
         if (listView.classList.contains('active')) {
             await this.renderCourses();
         } else if (detailView.classList.contains('active') && this.currentCourse) {
-            // Re-fetch course to get latest data (like maxParticipants)
+            // Re-fetch course to get latest data
             const courses = await this.dataManager.getCourses();
             this.currentCourse = courses.find(c => c.id === this.currentCourse.id);
-            await this.renderCourseDetail();
+            // Updating ONLY participants and course info, NOT the whole container to preserve chat input
+            await this.updateCourseParticipantsOnly();
         }
+    }
+
+    async updateCourseParticipantsOnly() {
+        const course = this.currentCourse;
+        const allEnrollments = await this.dataManager.getEnrollments();
+        const enrollments = allEnrollments.filter(e => e.courseId === course.id);
+        const users = await this.dataManager.getAuthorizedEmails();
+        const maxParticipants = course.maxParticipants || 20;
+        const availableSpots = maxParticipants - enrollments.length;
+
+        // Update Availability Badge in Info Section
+        const availabilitySpan = document.querySelector('.availability-status');
+        if (availabilitySpan) {
+            availabilitySpan.className = `availability-status ${availableSpots > 0 ? 'spots-available' : 'spots-full'}`;
+            availabilitySpan.innerHTML = `
+                ${enrollments.length}/${maxParticipants} posti occupati
+                ${availableSpots > 0 ? `(${availableSpots} disponibili)` : '(Completo)'}
+            `;
+        }
+
+        // Update Participants List
+        const participantsContainer = document.querySelector('.participants-list-container');
+        if (participantsContainer) {
+            const participants = enrollments.map(e => {
+                const user = users.find(u => u.email === e.userId);
+                return user ? user.name : 'Utente sconosciuto';
+            });
+            participantsContainer.innerHTML = participants.length > 0 ? `
+                <ul class="participants-list">
+                    ${participants.map((p, idx) => `
+                        <li class="participant-item">
+                            <span>${p}</span>
+                            ${this.currentUser.isAdmin ? `<button class="remove-participant-btn" onclick="app.removeParticipant('${enrollments[idx].userId}', '${p.replace(/'/g, "\\'")}')">Rimuovi</button>` : ''}
+                        </li>
+                    `).join('')}
+                </ul>
+            ` : '<p class="no-participants">Nessun partecipante iscritto</p>';
+        }
+
+        // Update Action Buttons if user role changed or if it just became full
+        // (Simplified: we keep them if they are already rendered, usually they don't change state on background refresh)
     }
 
     async init() {
@@ -500,8 +560,7 @@ class CourseApp {
         if (!email) return;
 
         try {
-            const authorizedEmails = await this.dataManager.getAuthorizedEmails();
-            const user = authorizedEmails.find(u => u.email === email);
+            const user = await this.dataManager.getUserByEmail(email);
 
             if (user) {
                 this.currentUser = user;
@@ -558,6 +617,11 @@ class CourseApp {
     }
 
     handleLogout() {
+        // Clean up Realtime
+        if (this.realtimeChannel) {
+            this.dataManager.supabase.removeChannel(this.realtimeChannel);
+            this.realtimeChannel = null;
+        }
         this.dataManager.logout();
         this.currentUser = null;
         this.showAuthScreen();
@@ -745,7 +809,7 @@ class CourseApp {
                     </div>
                     <div class="course-info-item">
                         <label>Disponibilità</label>
-                        <span class="${availableSpots > 0 ? 'spots-available' : 'spots-full'}">
+                        <span class="availability-status ${availableSpots > 0 ? 'spots-available' : 'spots-full'}">
                             ${enrollments.length}/${maxParticipants} posti occupati
                             ${availableSpots > 0 ? `(${availableSpots} disponibili)` : '(Completo)'}
                         </span>
@@ -760,16 +824,18 @@ class CourseApp {
 
             <div class="participants-section">
                 <h3>Partecipanti Iscritti</h3>
-                ${participants.length > 0 ? `
-                    <ul class="participants-list">
-                        ${participants.map((p, idx) => `
-                            <li class="participant-item">
-                                <span>${p}</span>
-                                ${this.currentUser.isAdmin ? `<button class="remove-participant-btn" onclick="app.removeParticipant('${enrollments[idx].userId}', '${p.replace(/'/g, "\\'")}')">Rimuovi</button>` : ''}
-                            </li>
-                        `).join('')}
-                    </ul>
-                ` : '<p class="no-participants">Nessun partecipante iscritto</p>'}
+                <div class="participants-list-container">
+                    ${participants.length > 0 ? `
+                        <ul class="participants-list">
+                            ${participants.map((p, idx) => `
+                                <li class="participant-item">
+                                    <span>${p}</span>
+                                    ${this.currentUser.isAdmin ? `<button class="remove-participant-btn" onclick="app.removeParticipant('${enrollments[idx].userId}', '${p.replace(/'/g, "\\'")}')">Rimuovi</button>` : ''}
+                                </li>
+                            `).join('')}
+                        </ul>
+                    ` : '<p class="no-participants">Nessun partecipante iscritto</p>'}
+                </div>
             </div>
 
             ${(isEnrolled || this.currentUser.isAdmin) ? `
