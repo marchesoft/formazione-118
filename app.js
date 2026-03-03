@@ -22,10 +22,11 @@ class DataManager {
             .eq('email', email.toLowerCase())
             .single();
         if (error) {
-            if (error.code !== 'PGRST116') { // Not found error code
-                console.error('Error fetching user by email:', error);
+            if (error.code === 'PGRST116') { // Not found error code
+                return null;
             }
-            return null;
+            console.error('Error fetching user by email:', error);
+            throw error; // Re-throw other errors to be caught by login handler
         }
         return this.mapUser(data);
     }
